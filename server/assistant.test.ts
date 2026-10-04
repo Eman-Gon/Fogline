@@ -25,9 +25,9 @@ async function harness({ now = new Date('2026-10-05T14:20:00Z'), pushEnabled = f
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${(server.address() as any).port}`;
   const send = async (path: string, data?: any) => { const r = await fetch(base + path, { method: data === undefined ? 'GET' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` }, ...(data === undefined ? {} : { body: JSON.stringify(data) }) }); return { status: r.status, body: await r.json() as any }; };
-  const saveCommute = async (deadlineFirm = true) => {
+  const saveCommute = async (deadlineFirm = true, arriveBy = 540) => {
     const first = await send('/api/agent/state');
-    return send('/api/agent/commute', { revision: first.body.revision, profile: { ...first.body.profile, destination: 'Work', arriveBy: 540, ready: 35, walk: 6, destinationWalk: 5, ride: 30 }, commute: { ...chosen(c), deadlineFirm } });
+    return send('/api/agent/commute', { revision: first.body.revision, profile: { ...first.body.profile, destination: 'Work', arriveBy, ready: 35, walk: 6, destinationWalk: 5, ride: 30 }, commute: { ...chosen(c), deadlineFirm } });
   };
   return { send, saveCommute, published, get state() { return state; }, setNow: (d: Date) => { clock = d; }, restart: () => { service = createAgentService(options); }, tick: () => service.tick(), close: () => new Promise<void>(r => server.close(() => r())) };
 }
@@ -53,6 +53,8 @@ test('user-stated times are parsed conservatively', () => {
   assert.deepEqual(userTimes('by 9am'), [540]);
   assert.deepEqual(userTimes('I need 45 minutes, ten more, 20'), []);
   assert.deepEqual(userTimes('arrive 14:30'), [870]);
+  assert.deepEqual(userTimes('arrive 00:30'), [30]);
+  assert.deepEqual(userTimes('arrive 24:30 or 8:99'), []);
 });
 
 test('"I\'m 20 minutes behind": the agent records it, compares verified trips, and answers only with times tools returned', async () => {
@@ -68,8 +70,10 @@ test('"I\'m 20 minutes behind": the agent records it, compares verified trips, a
     assert.equal(before.journey.plan.tripId.includes('t2') || Boolean(before.journey.plan), true);
     const out = await h.send('/api/agent/assist', { text: "I'm 20 minutes behind" });
     assert.equal(out.status, 200);
-    assert.equal(out.body.replySource, 'model');
-    assert.match(out.body.reply, /verified option arrives \d{1,2}:\d{2}/);
+    assert.equal(out.body.replySource, 'fallback', 'no-fit options use deterministic wording even when all quoted times are supported');
+    assert.match(out.body.reply, /estimated arrival \d{1,2}:\d{2}/);
+    assert.match(out.body.reply, /minutes past your deadline; schedule only/);
+    assert.match(out.body.reply, /review another route or change today's deadline\?/);
     assert.deepEqual(out.body.toolsUsed, ['read_morning_state', 'report_running_late', 'compare_departures']);
     const ride = h.state.rides.find((r: any) => r.date === '2026-10-05');
     assert.equal(ride.extraPrep, 20);
@@ -99,6 +103,125 @@ test('a model reply with an unsupported time or percentage is replaced by Foglin
   }
 });
 
+test('schedule-only wording is enforced for the three plan replies observed in the live model test', async () => {
+  const cases = [
+    { text: "I'm 10 minutes behind", tool: 'report_running_late', args: { minutes: 10 }, reply: (t: any) => `You are now 10 minutes behind. Your recommended trip arrives at ${t.recommended.arrives}, which is before your ${t.arriveBy} deadline.` },
+    { text: "What's my plan?", tool: 'read_morning_state', args: {}, reply: (t: any) => `You need to leave home by ${t.plan.leaveHome} to arrive by ${t.arriveBy}. You have ${t.preparationMinutesRemaining} minutes of preparation remaining.` },
+    { text: 'Today 9:15 am is fine', tool: 'apply_today_exception', args: { kind: 'deadline', arrive_by: '09:15' }, reply: (t: any) => `OK. I've updated your arrival time for today. Your new plan is to leave home at ${t.recommended.leaveHome} to arrive by ${t.recommended.arrives}.` },
+  ];
+  for (const scenario of cases) {
+    const model = scripted([
+      () => ({ role: 'assistant', content: null, tool_calls: [call('1', scenario.tool, scenario.args)] }),
+      m => ({ role: 'assistant', content: scenario.reply(lastTool(m)) }),
+    ]);
+    const h = await harness({ now: new Date('2026-10-05T13:00:00Z'), chat: model.chat });
+    try {
+      await h.saveCommute();
+      const out = await h.send('/api/agent/assist', { text: scenario.text });
+      assert.equal(out.status, 200);
+      assert.equal(out.body.replySource, 'fallback', scenario.tool);
+      assert.equal(out.body.reply, h.state.briefing.speech);
+      assert.match(out.body.reply, /schedule; no live prediction is confirmed/);
+      assert.match(out.body.reply, /Times are estimates, not guarantees/);
+    } finally { await h.close(); }
+  }
+});
+
+test('a grounded plan reply with an explicit schedule estimate remains usable', async () => {
+  const model = scripted([
+    () => ({ role: 'assistant', content: null, tool_calls: [call('1', 'read_morning_state')] }),
+    m => ({ role: 'assistant', content: `Leave home at ${lastTool(m).plan.leaveHome}. This is a schedule-only estimate; no live prediction is confirmed.` }),
+  ]);
+  const h = await harness({ chat: model.chat });
+  try {
+    await h.saveCommute();
+    const before = structuredClone(h.state);
+    const out = await h.send('/api/agent/assist', { text: "What's my plan?" });
+    assert.equal(out.body.replySource, 'model');
+    assert.match(out.body.reply, /schedule-only estimate/);
+    assert.deepEqual(h.state, before, 'reading a plan and checking its wording must not change account state');
+  } finally { await h.close(); }
+});
+
+test('no-fit reads expose late choices and reject both invented departures and misleading use of supported times', async () => {
+  for (const invented of [true, false]) {
+    const model = scripted([
+      () => ({ role: 'assistant', content: null, tool_calls: [call('1', 'read_morning_state')] }),
+      m => {
+        const t = lastTool(m);
+        assert.equal(t.plan, null);
+        assert.equal(t.planStatus, 'no-fit');
+        assert.ok(t.optionsMissingDeadline.length > 0, 'the read tool includes the choices without relying on a second model tool call');
+        return { role: 'assistant', content: invented
+          ? `You need to leave by 2:34 PM to arrive by your ${t.arriveBy} deadline. You have 35 minutes of preparation remaining.`
+          : `Leave at ${t.optionsMissingDeadline[0].leaveHome} to make your ${t.arriveBy} deadline. This is a schedule-only estimate.` };
+      },
+    ]);
+    const h = await harness({ now: new Date('2026-10-05T15:00:00Z'), chat: model.chat });
+    try {
+      await h.saveCommute();
+      const before = structuredClone(h.state);
+      const out = await h.send('/api/agent/assist', { text: "What's my plan?" });
+      assert.equal(out.body.replySource, 'fallback');
+      assert.match(out.body.reply, /No remaining trip fits your firm 9:00 AM deadline and safety buffer/);
+      assert.match(out.body.reply, /8:45 AM departure: leave home at 8:36 AM, estimated arrival 9:20 AM \(20 minutes past your deadline; schedule only\)/);
+      assert.match(out.body.reply, /no confirmed live prediction/);
+      assert.match(out.body.reply, /review another route or change today's deadline\?/);
+      assert.match(out.body.reply, /Current service alerts could not be confirmed/, 'retain existing data caveats');
+      assert.doesNotMatch(out.body.reply, /2:34|to make your/);
+      assert.deepEqual(h.state, before, 'displaying late choices never relaxes a firm deadline');
+    } finally { await h.close(); }
+  }
+});
+
+test('a hypothetical no-fit reply labels the extra preparation assumption without saving it', async () => {
+  const model = scripted([
+    () => ({ role: 'assistant', content: null, tool_calls: [call('1', 'compare_departures', { extra_prep_minutes: 20 })] }),
+    () => ({ role: 'assistant', content: 'You will still get there on time.' }),
+  ]);
+  const h = await harness({ chat: model.chat });
+  try {
+    await h.saveCommute();
+    const before = structuredClone(h.state);
+    const out = await h.send('/api/agent/assist', { text: 'What if I need 20 extra minutes?' });
+    assert.equal(out.body.replySource, 'fallback');
+    assert.match(out.body.reply, /^With 20 extra preparation minutes, no remaining trip fits/);
+    assert.deepEqual(h.state, before);
+  } finally { await h.close(); }
+});
+
+test('no-fit wording distinguishes a trip inside the buffer from an arrival past the deadline', async () => {
+  const model = scripted([
+    () => ({ role: 'assistant', content: null, tool_calls: [call('1', 'compare_departures')] }),
+    () => ({ role: 'assistant', content: 'You will get there on time.' }),
+  ]);
+  const h = await harness({ now: new Date('2026-10-05T15:00:00Z'), chat: model.chat });
+  try {
+    await h.saveCommute(true, 565);
+    const out = await h.send('/api/agent/assist', { text: "What's my plan?" });
+    assert.equal(out.body.replySource, 'fallback');
+    assert.match(out.body.reply, /estimated arrival 9:20 AM \(inside your safety buffer; schedule only\)/);
+    assert.match(out.body.reply, /estimated arrival 9:50 AM \(25 minutes past your deadline; schedule only\)/);
+    assert.match(out.body.reply, /review another route or change today's deadline\?/);
+  } finally { await h.close(); }
+});
+
+test('the time guard keeps AM/PM and checks hour-only and invalid clock expressions', async () => {
+  for (const replacement of [null, '3 PM', '24:30', '8:99']) {
+    const model = scripted([
+      () => ({ role: 'assistant', content: null, tool_calls: [call('1', 'read_morning_state')] }),
+      m => ({ role: 'assistant', content: `Leave at ${replacement ?? lastTool(m).plan.leaveHome.replace('AM', 'PM')}. This is a schedule-only estimate.` }),
+    ]);
+    const h = await harness({ chat: model.chat });
+    try {
+      await h.saveCommute();
+      const out = await h.send('/api/agent/assist', { text: "What's my plan?" });
+      assert.equal(out.body.replySource, 'fallback');
+      assert.equal(out.body.reply, h.state.briefing.speech);
+    } finally { await h.close(); }
+  }
+});
+
 test('the loop is bounded: a model that never stops calling tools cannot spin', async () => {
   const model = scripted([() => ({ role: 'assistant', content: null, tool_calls: [call('x', 'read_morning_state'), call('y', 'read_morning_state'), call('z', 'read_morning_state'), call('w', 'read_morning_state')] })]);
   const h = await harness({ chat: model.chat });
@@ -121,7 +244,7 @@ test('today\'s deadline can change only to a time the user wrote, and never edit
     assert.equal(out.body.reply, 'I need you to tell me the new time.');
     assert.equal(h.state.rides.find((r: any) => r.date === '2026-10-05')?.deadlineOverride, undefined);
   } finally { await h.close(); }
-  const honest = scripted([() => ({ role: 'assistant', content: null, tool_calls: [call('1', 'apply_today_exception', { kind: 'deadline', arrive_by: '09:15' })] }), m => ({ role: 'assistant', content: `Today's arrive-by time is now ${lastTool(m).todayArriveBy}.` })]);
+  const honest = scripted([() => ({ role: 'assistant', content: null, tool_calls: [call('1', 'apply_today_exception', { kind: 'deadline', arrive_by: '09:15' })] }), m => ({ role: 'assistant', content: `Today's arrive-by time is now ${lastTool(m).todayArriveBy}. The plan uses schedule estimates.` })]);
   h = await harness({ chat: honest.chat });
   try {
     await h.saveCommute();

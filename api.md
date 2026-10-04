@@ -1,6 +1,6 @@
 # Fogline APIs and tools
 
-Updated against the repository on **October 4, 2026**, including the subsequent server-hardening pass. The user-supplied live audit reports a successful Neon account read (revision 16); this pass did not repeat live provider requests. This document distinguishes implemented behavior, credential presence, previously recorded verification, and proposed work. Credential values are intentionally omitted. A configured key does not establish successful authentication, available credits, or a healthy deployed service.
+Updated against the repository on **October 4, 2026**, including the server-hardening pass and Neon AI Gateway migration. The user-supplied live audit reports a successful Neon account read (revision 16); the gateway migration verified live inference with synthetic inputs. This document distinguishes implemented behavior, credential presence, previously recorded verification, and proposed work. Credential values are intentionally omitted. A configured key does not establish successful authentication, available credits, or a healthy deployed service.
 
 ## How the services fit together
 
@@ -15,7 +15,7 @@ flowchart TD
   Planner --> Transit[511 adapter and memory cache]
   Transit --> Feed[511 transit API]
   API --> Correction[Correction interpreter]
-  Correction --> Mastra[Mastra Gateway: current model route]
+  Correction --> Gateway[Neon AI Gateway]
   API --> Research[On-demand route research]
   Research --> Exa[Exa Search]
   API --> Store[Account storage adapter]
@@ -27,7 +27,7 @@ flowchart TD
   Notifications --> Preview[Dry-run calls]
 ```
 
-Neon AI Gateway would replace or become an alternative to the **Mastra Gateway request** above. It would not replace Postgres, the planner, the transit API, or the web server. Fogline decides what to send to a model and validates any returned action before applying it.
+Neon AI Gateway serves the AI requests above. Postgres stores account data, while the planner and transit API calculate commute times. Fogline decides what to send to a model and validates any returned action before applying it.
 
 ## Integration inventory
 
@@ -36,8 +36,8 @@ Sponsor labels follow [the hackathon sponsor table](hackathon-info.md#sponsor-to
 | Service or tool | Sponsor? | Role in this app | Current evidence |
 |---|---|---|---|
 | Neon Postgres | Yes | Persistent personal account, rides, preferences, briefing and events | Implemented; `DATABASE_URL` is set and points to a Neon host. The supplied live audit reports an account read at revision 16; not repeated in this pass. |
-| Neon AI Gateway | Yes | Potential model request route for natural-language corrections | Not wired; gateway URL and token are absent or empty. |
-| Mastra Gateway | Yes | Interprets requests from “Adjust tomorrow” | HTTP integration implemented; key set. No live completion tested in this audit. |
+| Neon AI Gateway | Yes | Ask Fogline and preparation corrections | Configured; live tool calls verified. |
+| Mastra Gateway | Yes | Previous inference provider | Replaced by Neon AI Gateway. |
 | Mastra framework | Yes | Potential agent orchestration framework | `@mastra/core` is not installed. Current orchestration is plain TypeScript. |
 | Exa | Yes | Finds recent public route reports | Search implemented; key set. No live search tested in this audit. |
 | 511 transit API | No | Official arrivals, scheduled times and service alerts | Implemented; key set. An earlier entry in this document recorded a successful live response on Oct 4; not repeated in this audit. |
@@ -77,18 +77,18 @@ The agent serializes local operations in an in-process queue and re-reads state 
 
 The database URL is set locally; older statements that it was empty are obsolete. The supplied October 4 live audit reports a successful account read at revision 16. This hardening pass did not connect to the database or verify migration/restart behavior. Storage status in the UI only reflects configuration.
 
-## Mastra Gateway: the current AI request path
+## Neon AI Gateway: the current AI request path
 
 **Implementation:** [server/integrations.ts](server/integrations.ts), [correction handler](server/agent.ts), [server UI](src/ServerMorning.tsx).
 
 Submitting “Adjust tomorrow” sends `POST /api/agent/correct` with `{ "text": "I need 45 minutes to get ready tomorrow" }`. The server accepts a nonblank string of up to 1,000 characters and sends one request to:
 
 ```text
-POST https://gateway-api.mastra.ai/v1/chat/completions
-Authorization: Bearer <MASTRA_GATEWAY_API_KEY>
+POST ${NEON_AI_GATEWAY_BASE_URL}/v1/chat/completions
+Authorization: Bearer <NEON_AI_GATEWAY_TOKEN>
 ```
 
-The model defaults to `google/gemini-2.5-flash`; `MASTRA_MODEL` can override it. The current local override is empty/absent, so the default applies. The request sets temperature to zero, requires a tool choice, and includes a system instruction, the submitted text, and three function definitions. It does not send the account document, ride history, transit feed or current plan. Anything the user types into the field is included in the submitted text.
+The model defaults to `gemini-3-flash`; `NEON_AI_MODEL` can override it. The current local override is empty/absent, so the default applies. The request sets temperature to zero, requires a tool choice, and includes a system instruction, the submitted text, and three function definitions. It does not send the account document, ride history, transit feed or current plan. Anything the user types into the field is included in the submitted text.
 
 | Model-returned tool | Meaning | What Fogline actually does |
 |---|---|---|
@@ -102,58 +102,27 @@ The model call happens outside the storage queue, then the handler re-reads curr
 
 This is a direct HTTP call using `fetch`, not a Mastra framework agent. There is no installed Mastra workflow, memory or tracing subsystem. The background planner does not call an LLM.
 
-## Neon AI Gateway: how it would serve Fogline
+## Neon gateway configuration and verification
 
-**Current state:** no request path, gateway environment variables, or gateway health reporting is implemented. `NEON_API_KEY` is set locally, but Fogline does not use it to make inference calls. A working Postgres connection does not establish gateway access or available model credits.
+Set `NEON_AI_GATEWAY_TOKEN` and `NEON_AI_GATEWAY_BASE_URL` on the server. The URL must be a bare HTTPS Neon host; Fogline appends `/v1/chat/completions`. `NEON_AI_MODEL` defaults to `gemini-3-flash`, verified in the Fogline branch catalog. Missing or invalid configuration fails explicitly; there is no Mastra fallback. Credentials stay server-side.
 
-Neon's gateway accepts model requests at a branch-specific HTTPS endpoint. A gateway credential authorizes those requests, and the selected model returns a completion or tool call. For Fogline, the proposed flow is:
+On October 4, the existing Fogline production branch in `aws-us-east-2` reported its gateway enabled. Its existing credential has `ai_gateway:invoke` scope. A live correction returned the requested 45-minute value and a live chat request returned `read_morning_state`. These smoke checks used synthetic inputs and did not change the account. They verify inference access, not the remaining prepaid balance.
 
-```text
-User correction → Fogline /api/agent/correct
-                → Neon branch AI Gateway → selected model
-                → structured tool call → Fogline validation
-                → save approved action through existing account store
-```
+Ask Fogline uses this same gateway adapter with automatic tool choice, then executes validated tools in `server/morning.ts`. The correction endpoint requires a tool choice. Prompts, tool limits, deterministic calculations and account storage remain in Fogline. Exa remains a separate research API.
 
-The gateway does not automatically read Postgres, run SQL, execute Fogline functions or change the account. The server would continue supplying the prompt/tool definitions and executing validated actions. Commute calculations and learning would remain in code.
+See Neon's [Chat Completions reference](https://neon.com/docs/ai-gateway/chat-completions) and [quickstart](https://neon.com/docs/ai-gateway/get-started).
 
-### Connection contract
+## Exa: same-day route research
 
-| Setting | Purpose |
-|---|---|
-| `NEON_AI_GATEWAY_BASE_URL` | Bare HTTPS branch gateway host, separate from the Postgres connection string |
-| `NEON_AI_GATEWAY_TOKEN` | Inference credential; obtain one with the `ai_gateway:invoke` scope |
-| Selected model ID | Use a model available from this branch's catalog; do not assume the existing Mastra-prefixed ID is accepted |
-| Request route | `POST ${NEON_AI_GATEWAY_BASE_URL}/v1/chat/completions` |
-| Authentication | `Authorization: Bearer <NEON_AI_GATEWAY_TOKEN>` |
-| Catalog route | `GET ${NEON_AI_GATEWAY_BASE_URL}/v1/models` |
+**Implementation:** [server/commute-research.ts](server/commute-research.ts) and [server/exa-assessment.ts](server/exa-assessment.ts).
 
-Neon's Chat Completions endpoint is compatible with the request style Fogline already uses. A migration could retain `fetch`; adding an SDK or the Mastra framework is not a prerequisite. Model compatibility with the existing tool schema, required tool choice and response decoder must still be tested. See [Chat Completions](https://neon.com/docs/ai-gateway/chat-completions) and [model catalog](https://neon.com/docs/ai-gateway/models).
+Saved commute checks, temporary previews, tracked rides, and `POST /api/agent/research` use the same research gate. A valid leave-to-estimated-arrival window is required. Research opens on the local day of departure, two hours before leaving, and closes at estimated arrival. Skipped and completed account rides are excluded. Outside this window the response is `deferred`, with no sources or completed search timestamp. Manual refresh cannot bypass the gate.
 
-### Access and billing prerequisites
+Eligible requests call `POST https://api.exa.ai/answer` with the server’s `EXA_API_KEY`, a structured output schema, and citation text. Queries include the public route, direction, boarding and alighting stops, service day, and travel window. They exclude account keys, personal destination labels, and ride history. Official notices are preferred; there is no domain allowlist.
 
-Official docs checked on Oct 4 state that the gateway requires a paid plan with prepaid credits and a project in `aws-us-east-2`, `aws-us-east-1`, `aws-eu-central-1`, or `aws-ap-southeast-1`. The user's project region, plan and credit balance were not checked. Hackathon credit offers do not prove credits were claimed. See [gateway overview](https://neon.com/docs/ai-gateway/overview) and [quickstart](https://neon.com/docs/ai-gateway/get-started). These requirements may change; current official docs take precedence over older local skill examples.
+Only cited findings with matching quoted evidence, explicit impact times, and overlap with the trip are displayed. Unrelated, expired, undated, and non-overlapping sources are omitted. Publication date is not the impact date. Normal-service findings require an official SFMTA or 511 source covering the entire trip. No qualifying results means unconfirmed, never an all-clear. Research does not change transit predictions.
 
-### Concrete integration work, not yet performed
-
-1. Check the existing project's gateway eligibility and obtain its branch host and inference credential through the Console's Connect → AI Gateway view or Neon tooling. Keep credentials server-side.
-2. Read the branch model catalog and choose a tool-capable model. Verify the actual catalog ID rather than copying a Mastra model name.
-3. Add a gateway adapter or explicit provider selection in `server/integrations.ts`. Point requests to Neon and preserve the prompt, tool definitions, input limits, timeout and validation behavior. Merely adding environment variables will not change the hard-coded Mastra endpoint.
-4. Update provider names in health reporting, errors, UI disclosure and decision events; the current code explicitly says “Mastra.” Add the new variables to `.env.example` without values.
-5. Test a valid 45-minute correction, ambiguous text, invalid tool arguments, provider failure and persistence after reload. A generic “hello” completion alone would not verify the app's tool flow.
-6. Verify one end-to-end request and its credit usage before describing the gateway as live. Keep one chosen route per correction unless deliberate routing is added; sending to both gateways would duplicate inference work.
-
-Mastra **framework** and Neon **gateway** could also coexist: the framework would orchestrate an agent while Neon serves its model calls. That is a possible future design, separate from the current Mastra Gateway HTTP integration.
-
-## Exa: on-demand route research
-
-**Implementation:** `researchRoute()` in [server/integrations.ts](server/integrations.ts), triggered by “Search recent route reports.”
-
-`POST /api/agent/research` reads the account and makes `POST https://api.exa.ai/search` using the server's `EXA_API_KEY` in an `x-api-key` header. Its query is `San Francisco Muni <line> <headsign> service disruption delay closure`. It requests automatic search, up to five results, and a publication-date cutoff two days before the request.
-
-Only route line/headsign are selected from the account for the query. Account keys, full profiles and rides are not included. The configured line/headsign strings are sent as entered, so those fields should contain transit information. The response retains a title, HTTP(S) URL and optional publication date for each source. The app does not fetch article bodies, crawl pages or call an Exa agent product.
-
-Results are cached by query for ten minutes in server memory, shown in the current browser session, and labeled unconfirmed. They are not persisted in the account or used to change arrival times, risk estimates or the planner. No results does not establish that transit is clear. The same 30-second timeout and sanitized provider error handling used for Mastra apply. Research only runs on request; there is no scheduled search.
+Successful reports are cached for 30 minutes, failures for 10 minutes, keyed by route, stops, service day, and travel window. Concurrent requests coalesce. Explicit refresh bypasses completed cache entries. Provider requests time out after 20 seconds; failures preserve the transit plan and return an unavailable report.
 
 ## 511: official transit inputs
 
@@ -187,7 +156,7 @@ POST bodies must be JSON; the body reader rejects payloads over its 16,384-chara
 | Method and route | Request | Response and side effects |
 |---|---|---|
 | `GET /api/agent/state` | No body | Current account or fresh defaults; no account save, though first Neon access can initialize storage/import a local account. |
-| `GET /api/agent/integrations` | No body | Configuration flags and in-memory Mastra/Exa last success/error; no provider health probe. |
+| `GET /api/agent/integrations` | No body | Configuration flags and in-memory Neon AI/Exa last success/error; no provider health probe. |
 | `POST /api/agent/settings` | `{ revision, profile, settings }` | Validates preferences/revision, saves and recalculates briefing. Conflicts return 409. |
 | `POST /api/agent/check` | `{}` | Refreshes transit through the cache, calculates briefing and saves account/events. |
 | `POST /api/agent/checkin` | `{ action }` | `acknowledge`, `start`, `leave` or `arrive`; server timestamps, validation, recalculation and persistence. |
@@ -216,10 +185,10 @@ Presence below reflects the local environment loaded from `.env` during this aud
 |---|---|---|
 | `DATABASE_URL` | Set, Neon host | Selects Neon account storage |
 | `NEON_API_KEY` | Set | Management credential; not read by app runtime |
-| `NEON_AI_GATEWAY_TOKEN` | Empty/absent | Proposed inference credential; not read by current code |
-| `NEON_AI_GATEWAY_BASE_URL` | Empty/absent | Proposed inference host; not read by current code |
-| `MASTRA_GATEWAY_API_KEY` | Set | Current correction inference credential |
-| `MASTRA_MODEL` | Empty/absent | Defaults to `google/gemini-2.5-flash` |
+| `NEON_AI_GATEWAY_TOKEN` | Set | Current inference credential |
+| `NEON_AI_GATEWAY_BASE_URL` | Set | Current branch inference host |
+| `MASTRA_GATEWAY_API_KEY` | Retained locally | Legacy credential, no longer read by runtime |
+| `NEON_AI_MODEL` | Empty/absent | Defaults to `gemini-3-flash` |
 | `EXA_API_KEY` | Set | On-demand route search |
 | `SF511_API_KEY` | Set | Transit adapter |
 | `FOGLINE_ACCOUNT_TOKEN` | Set | Personal API access |
@@ -231,7 +200,7 @@ Presence below reflects the local environment loaded from `.env` during this aud
 | `AGENTMAIL_API_KEY`, `FLY_API_TOKEN` | Empty/absent | Optional services not integrated |
 | `KERNEL_API_KEY`, `EXECUTOR_API_KEY` | Empty/absent | Skipped tools |
 
-Keep values server-side and out of committed documentation. Database passwords, management API keys, inference tokens and the Fogline account key have separate roles; they are not interchangeable. The integrations endpoint neither returns them nor checks balances. Its storage flag simply tests `DATABASE_URL`; it does not verify database connectivity. Mastra/Exa health history resets when the process restarts.
+Keep values server-side and out of committed documentation. Database passwords, management API keys, inference tokens and the Fogline account key have separate roles; they are not interchangeable. The integrations endpoint neither returns them nor checks balances. Its storage flag simply tests `DATABASE_URL`; it does not verify database connectivity. Neon AI/Exa health history resets when the process restarts.
 
 ## Development tools versus app services
 
@@ -249,7 +218,11 @@ The next work depends on the desired feature:
 
 1. **Reliable saved mornings:** verify Neon account persistence through an app request/restart and confirm scheduler deployment. Consider avoiding no-op timer saves outside the planning window.
 2. **Neon-funded model calls:** complete the gateway integration steps above and verify actual branch access/credits. No provider migration was made during this documentation update.
-3. **Verified current AI/search:** run representative Mastra and Exa requests and inspect sanitized health results; configuration flags alone are insufficient.
+3. **Verified current AI/search:** run representative Neon AI and Exa requests and inspect sanitized health results; configuration flags alone are insufficient.
 4. **Phone use:** verify server HTTPS reachability, Shortcut briefing and explicit acknowledgement.
 5. **Real escalation:** verify ntfy receipt on the phone and implement/test Twilio delivery and acknowledgement handling. The ntfy publisher is implemented; calls remain previews.
 6. **Optional sponsor features:** add framework, UI, email, review or hosting integrations only when their specific feature is needed.
+
+## Quick use assistant
+
+`POST /api/agent/preview` accepts an optional `text` (1–1000 nonblank characters) alongside the validated temporary ride input. It runs Ask Fogline through Neon against request-local state and returns `reply`, `actions`, `toolsUsed`, and the updated `profile`, `commute`, and `journey`. It never returns a replacement account or saves account changes. The client carries the returned profile into subsequent refresh and tracking requests. Read, compare, extra preparation, and explicit arrival-deadline changes are available; notification and day-off tools are disabled and rejected in code. Preparation is capped at 180 minutes so returned profiles remain valid for refresh and tracking.

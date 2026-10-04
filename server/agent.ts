@@ -1,13 +1,18 @@
+import { checkTrackedRide, observeTracking, queueTrackingReport, trackingDue, trackingInterval, tracksSavedCommute } from './tracking';
+import { checkCommuteResearch } from './commute-research';
 // @ts-expect-error JavaScript reminder policy.
 import { queueCommuteReminders } from './commute-reminders.mjs';
+// @ts-expect-error JavaScript morning schedule.
+import { schedulerDue } from './agent-schedule.mjs';
 // @ts-expect-error Observation archive is a JavaScript module.
 import { recordEvidence } from './observations.mjs';
 import { deliverPendingPush, notificationStatus, publishNotification, NotificationError } from './notifications.ts';
 import { randomUUID, timingSafeEqual, randomBytes, createHash } from 'node:crypto';
+import { networkInterfaces } from 'node:os';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { defaults, history, learn, plan, time, type Profile } from '../src/planner.ts';
 import { accountStore, type AccountStore } from './store.ts';
-import { integrationStatus, interpretCorrection, researchRoute, chatWithTools, IntegrationError } from './integrations.ts';
+import { integrationStatus, interpretCorrection, chatWithTools, IntegrationError } from './integrations.ts';
 import { effectiveProfile, morningStage, runAssistant, clockText, type Chat, type ToolEnv } from './morning.ts';
 import type { AccountState, AgentSettings, Briefing, Ride, ServerPlan } from '../src/agent-types.ts';
 // @ts-expect-error Existing JavaScript transit adapter.
@@ -15,13 +20,21 @@ import { getTransitSnapshot } from './transit.mjs';
 // @ts-expect-error JavaScript schedule adapter.
 import { getCatalog } from './gtfs.mjs';
 // @ts-expect-error JavaScript journey planner.
-import { planJourney, validateJourney } from './journey.mjs';
+import { planJourney, validateJourney, quickStart } from './journey.mjs';
 
 const json = (res: ServerResponse, code: number, body: unknown) => {
   res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' });
-  res.end(JSON.stringify(body, (key, value) => key === 'sessions' ? undefined : value));
+  res.end(JSON.stringify(body, (key, value) => key === 'sessions' || key === 'pairCode' ? undefined : value));
 };
 class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
+function scanOrigin(hostHeader: string | undefined) {
+  const host = hostHeader || 'localhost';
+  const [name, port] = host.split(':');
+  const local = name === 'localhost' || name === '127.0.0.1';
+  let lan: string | undefined;
+  if (local) { try { lan = Object.values(networkInterfaces()).flat().find(net => net?.family === 'IPv4' && !net.internal)?.address; } catch { lan = undefined; } }
+  return `http://${lan || name}${port ? `:${port}` : ''}`;
+}
 export function localClock(now: Date, timezone: string) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short' }).formatToParts(now).map(p => [p.type, p.value]));
   return { date: `${parts.year}-${parts.month}-${parts.day}`, minute: Number(parts.hour) * 60 + Number(parts.minute), weekday: parts.weekday };
@@ -108,6 +121,7 @@ export function computeBriefing(state: AccountState, snapshot: any, now: Date): 
 export function escalation(state: AccountState, now: Date, pushEnabled = notificationStatus().configured) {
   const clock = localClock(now, state.settings.timezone);
   const ride = currentRide(state, now);
+  if (tracksSavedCommute(state, +now)) return;
   if(state.commute){queueCommuteReminders(state,now,clock,pushEnabled);return;}
   if (!state.settings.enabled || ![1,2,3,4,5].includes(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(clock.weekday)) || clock.minute < state.settings.wakeStart || clock.minute >= state.settings.wakeEnd || ride.acknowledged || ride.started || !state.briefing) return;
   if (state.briefing.journey && state.briefing.journey.day !== clock.date) return;
@@ -142,7 +156,7 @@ async function body(req: IncomingMessage) {
   try { return JSON.parse(text); } catch { throw new ApiError(400, 'Invalid JSON.'); }
 }
 
-export function createAgentService({ file, token, snapshot = getTransitSnapshot, now = () => new Date(), store = accountStore(file), interpret = interpretCorrection, publish = publishNotification, pushEnabled = () => notificationStatus().configured, catalog = getCatalog, chat = chatWithTools as Chat }: { file: string; token: () => string | undefined; snapshot?: (stop: string, options?: any) => Promise<any>; now?: () => Date; store?: AccountStore; interpret?: typeof interpretCorrection; publish?: typeof publishNotification; pushEnabled?: () => boolean; catalog?: () => Promise<any>; chat?: Chat }) {
+export function createAgentService({ file, token, snapshot = getTransitSnapshot, now = () => new Date(), store = accountStore(file), interpret = interpretCorrection, publish = publishNotification, pushEnabled = () => notificationStatus().configured, catalog = getCatalog, chat = chatWithTools as Chat, research = checkCommuteResearch }: { file: string; token: () => string | undefined; snapshot?: (stop: string, options?: any) => Promise<any>; now?: () => Date; store?: AccountStore; interpret?: typeof interpretCorrection; publish?: typeof publishNotification; pushEnabled?: () => boolean; catalog?: () => Promise<any>; chat?: Chat; research?: typeof checkCommuteResearch }) {
   let queue: Promise<unknown> = Promise.resolve();
   const transact = <T,>(fn: (state: AccountState) => Promise<T> | T, write = true): Promise<T> => {
     const work = queue.then(async () => {
@@ -163,13 +177,17 @@ export function createAgentService({ file, token, snapshot = getTransitSnapshot,
   const check = async (state: AccountState) => {
     const date = now(); const ride = currentRide(state, date);
     const previous = state.briefing;
+    // Once the planned start has passed, keep tracking that trip even if they have not tapped "I'm starting now".
+    const plannedStart = previous?.journey?.plan?.start;
+    const planningRide = !ride.started && typeof plannedStart === 'number' && Number.isFinite(plannedStart) && date.getTime() >= plannedStart ? { ...ride, started: new Date(plannedStart).toISOString() } : ride;
     let data;
     try { data = await snapshot(state.profile.stopCode,{commute:state.commute}); } catch { data = null; }
     if (state.commute) {
-      try { const timetable = await catalog(); data = { ...data, journey: planJourney(timetable, state.commute, effectiveProfile(state.profile, ride), data, date, ride, previous?.journey) };
+      try { const timetable = await catalog(); data = { ...data, journey: planJourney(timetable, state.commute, effectiveProfile(state.profile, planningRide), data, date, planningRide, previous?.journey) };
         if(snapshot===getTransitSnapshot){try{await recordEvidence(timetable,state.commute,data,data.journey,date);}catch{data.journey.warnings=[...(data.journey.warnings||[]),'Observation recording is unavailable; learning is paused.'];}} }
       catch { data = { ...data, journey: {status:'unavailable', day:localClock(date,state.settings.timezone).date, plan:null,departures:[],reason:'Schedule unavailable. Your saved commute is safe; try again later.'} }; }
     }
+    if (state.commute && data?.journey) data.journey.research = await research(state, data.journey.day, data.journey.plan ? {start:data.journey.plan.leave,end:data.journey.plan.arrive} : undefined);
     state.briefing = computeBriefing(state, data, date);
     if (state.briefing.plan) ride.alertDue = Math.min(ride.alertDue ?? Infinity, state.briefing.plan.start);
     const before = previous?.plan, after = state.briefing.plan;
@@ -182,12 +200,27 @@ export function createAgentService({ file, token, snapshot = getTransitSnapshot,
   const tick = async () => {
     const saved = await transact(s=>s,false);
     const clock=localClock(now(),saved.settings.timezone);
-    const collect=saved.commute&&saved.commute.days.includes(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(clock.weekday))&&clock.minute>=Math.max(0,saved.profile.arriveBy-saved.profile.ready-180)&&clock.minute<saved.profile.arriveBy;
-    if(!saved.settings.enabled&&!collect)return;
+    if (trackingDue(saved.tracking, +now())) {
+      await transact(async state => {
+        if (trackingDue(state.tracking, +now())) {
+          await checkTrackedRide(state, now(), { catalog, snapshot, research });
+          if (tracksSavedCommute(state, +now())) state.briefing = computeBriefing(state, { journey: state.tracking!.journey }, now());
+          queueTrackingReport(state, +now(), pushEnabled());
+        }
+      });
+    }
+    if (tracksSavedCommute(saved, +now())) return;
+    if(!schedulerDue(saved,now(),clock))return;
     return transact(async state => {
     const clock = localClock(now(), state.settings.timezone);
-    if (!collect && (!state.settings.enabled || !(state.commute?.days ?? [1,2,3,4,5]).includes(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(clock.weekday)) || clock.minute < Math.max(0, state.settings.wakeStart - 10) || clock.minute >= state.settings.wakeEnd)) return;
+    const due = schedulerDue(state, now(), clock);
+    if (!due) return;
     await check(state);
+    const ride = state.rides.find(r => r.date === clock.date);
+    if (!ride) return;
+    if (due === 'wake') ride.wakeRan = clock.date;
+    if (due === 'live') ride.liveRanAt = now().getTime();
+    ride.collectRanAt = now().getTime();
   });
   };
   const handler = (req: IncomingMessage, res: ServerResponse) => {
@@ -203,17 +236,44 @@ export function createAgentService({ file, token, snapshot = getTransitSnapshot,
       const hash = (value: string) => createHash('sha256').update(secret + value).digest('hex');
       const account = !bearer && cookie ? await transact(s=>s,false) : null;
       const session = Boolean(cookie && account?.sessions?.some(s=>s.hash===hash(cookie)&&s.expires>Date.now()));
-      if (!bearer && !session) throw new ApiError(401, 'Connect this device with your personal account key.');
+      const pairing = req.method === 'POST' && url.pathname === '/api/agent/session';
+      if (!bearer && !session && !pairing) throw new ApiError(401, 'Connect this device with your personal account key.');
       if (req.method !== 'GET' && req.headers.origin) {
         let origin: URL; try { origin = new URL(req.headers.origin); } catch { throw new ApiError(403,'Invalid request origin.'); }
         if (origin.host !== req.headers.host) throw new ApiError(403,'Open Fogline on the same server to save changes.');
       }
       if (req.method !== 'GET' && session && !req.headers.origin && req.headers['x-fogline-client'] !== '1') throw new ApiError(403,'Missing request origin.');
-      const secure = !/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(req.headers.host || '') ? '; Secure' : '';
+      const forwarded = req.headers['x-forwarded-proto'];
+      const proto = (Array.isArray(forwarded) ? forwarded[0] : forwarded || '').split(',')[0].trim();
+      const secure = proto === 'https' || Boolean((req.socket as { encrypted?: boolean }).encrypted) ? '; Secure' : '';
+      const openSession = async (state: AccountState, sessionToken: string) => {
+        state.sessions=(state.sessions||[]).filter(x=>x.expires>Date.now()).slice(-19);
+        state.sessions.push({hash:hash(sessionToken),expires:Date.now()+30*86400000});
+      };
+      if (req.method === 'POST' && url.pathname === '/api/agent/pair-code') {
+        const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        const raw = [...randomBytes(6)].map(b => alphabet[b % alphabet.length]).join('');
+        const expires = Date.now() + 10 * 60 * 1000;
+        await transact(s => { s.pairCode = { hash: hash(raw), expires }; });
+        const shown = `${raw.slice(0, 3)}-${raw.slice(3)}`;
+        json(res, 200, { code: shown, expires, scanUrl: `${scanOrigin(req.headers.host)}/?pair=${shown}` }); return;
+      }
       if (req.method === 'POST' && url.pathname === '/api/agent/session') {
-        if (!bearer) throw new ApiError(401,'Use the account key to pair a new device.');
         const sessionToken = randomBytes(32).toString('hex');
-        await transact(s=>{s.sessions=(s.sessions||[]).filter(x=>x.expires>Date.now()).slice(-19);s.sessions.push({hash:hash(sessionToken),expires:Date.now()+30*86400000});});
+        if (bearer) {
+          await transact(s => openSession(s, sessionToken));
+        } else {
+          const code = supplied.replace(/[\s-]/g, '').toUpperCase();
+          if (!/^[A-Z2-9]{6}$/.test(code)) throw new ApiError(401, 'That key or pairing code did not work.');
+          const digest = hash(code);
+          await transact(s => {
+            const pair = s.pairCode;
+            const match = Boolean(pair && pair.expires > Date.now() && pair.hash.length === digest.length && timingSafeEqual(Buffer.from(pair.hash), Buffer.from(digest)));
+            if (!match) throw new ApiError(401, 'That key or pairing code did not work.');
+            delete s.pairCode;
+            return openSession(s, sessionToken);
+          });
+        }
         res.setHeader('Set-Cookie', `fogline_session=${sessionToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000${secure}`);
         json(res,200,{connected:true});return;
       }
@@ -249,7 +309,129 @@ export function createAgentService({ file, token, snapshot = getTransitSnapshot,
       }
       if (url.pathname === '/api/agent/research') {
         const state = await transact(s => s, false);
-        json(res, 200, await researchRoute(state)); return;
+        const journey = state.briefing?.journey;
+        json(res, 200, await research(state, journey?.day ?? localClock(now(), state.settings.timezone).date,
+          journey?.plan ? { start: journey.plan.leave, end: journey.plan.arrive } : undefined, { force: true })); return;
+      }
+      if (url.pathname === '/api/agent/tracking') {
+        const result = await transact(async state => {
+          const date = now(), at = +date;
+          if (input.action === 'start') {
+            if (state.tracking?.active && state.tracking.expiresAt > at) throw new ApiError(409, 'Stop the tracked ride before tracking another one.');
+            const quick = input.commute !== undefined;
+            const raw = quick ? input.commute : state.commute;
+            if (!raw) throw new ApiError(400, 'Choose your route and stops first.');
+            let selected;
+            const timetable = await catalog();
+            try { selected = validateJourney(raw, timetable); } catch (e) { throw new ApiError(400, (e as Error).message); }
+            const buffer = raw.buffer ?? 7, boardingMargin = raw.boardingMargin ?? 3;
+            if (!Number.isInteger(buffer) || buffer < 0 || buffer > 60 || !Number.isInteger(boardingMargin) || boardingMargin < 0 || boardingMargin > 20) throw new ApiError(400, 'Invalid arrival buffer or boarding margin.');
+            let timing = {};
+            try { timing = quick ? quickStart(input.quickTiming, date) : {}; } catch (e) { throw new ApiError(400, (e as Error).message); }
+            const commute = { ...selected, ...timing, days: [0,1,2,3,4,5,6], buffer, boardingMargin, deadlineFirm: raw.deadlineFirm !== false };
+            const existingRide = quick ? null : state.rides.find(r => r.date === localClock(date, state.settings.timezone).date) ?? null;
+            if (existingRide?.arrived || existingRide?.skipped) throw new ApiError(409, 'This morning is already complete. Use Quick use for another ride.');
+            const profile = validateProfile({ ...(quick ? input.profile : effectiveProfile(state.profile, existingRide)), stopCode: selected.stopId });
+            let data = null;
+            try { data = await snapshot(commute.stopId, { commute }); } catch { /* The plan labels schedule-only evidence. */ }
+            const journey = planJourney(timetable, commute, profile, data, date, existingRide, quick ? null : state.briefing?.journey);
+            if (!journey.plan || journey.day !== localClock(date, 'America/Los_Angeles').date) throw new ApiError(409, 'No feasible ride to track today. Review the departures or adjust your arrive-by time.');
+            const researchState = { ...state, commute, profile, rides: [], settings: { ...state.settings, line: commute.line, headsign: commute.headsign } };
+            journey.research = await research(researchState, journey.day, { start: journey.plan.leave, end: journey.plan.arrive });
+            if (state.tracking) {
+              state.tracking.active = false;
+              state.trackingHistory = [state.tracking, ...(state.trackingHistory || [])].slice(0, 10);
+            }
+            state.tracking = {
+              id: randomUUID(), active: true, origin: quick ? 'quick' : 'saved', createdAt: at,
+              expiresAt: Math.min(at + 4 * 60 * 60000, journey.plan.arrive + 30 * 60000),
+              commute, profile, trip: journey.plan, journey, lastCheckedAt: at,
+              nextCheckAt: at + trackingInterval(journey.plan.leave, at), researchAttemptAt: at,
+              departureResearchDone: journey.plan.leave - at <= 10 * 60000,
+              samples: [], reports: [], delayStreak: 0, lastObservation: null, lastDelay: null, reportedDelay: null,
+              ...(existingRide?.started ? { started: Date.parse(existingRide.started) } : {}),
+              ...(existingRide?.left ? { left: Date.parse(existingRide.left) } : {}),
+              ...(existingRide?.boarded ? { boarded: Date.parse(existingRide.boarded) } : {}),
+            };
+            observeTracking(state.tracking, journey, at);
+            return state;
+          }
+          const tracked = state.tracking;
+          if (!tracked || input.id !== tracked.id) throw new ApiError(409, 'The tracked ride changed. Reopen Track ride.');
+          if (input.action === 'stop') { tracked.active = false; tracked.endedReason = 'Tracking stopped by you.'; return state; }
+          if (!tracked.active || at >= tracked.expiresAt) throw new ApiError(409, 'Tracking has ended. Set up another ride.');
+          if (input.action === 'prepare') tracked.started ??= at;
+          else if (input.action === 'leave') {
+            if (!tracked.started) throw new ApiError(409, 'Record starting preparation first.');
+            tracked.left ??= at;
+          } else if (input.action === 'board') {
+            if (!tracked.left) throw new ApiError(409, 'Record leaving first.');
+            tracked.boarded ??= at;
+          } else if (input.action === 'arrive') {
+            if (!tracked.left) throw new ApiError(409, 'Record leaving first.');
+            tracked.arrived ??= at; tracked.active = false; tracked.endedReason = 'Arrival confirmed by you.';
+          } else throw new ApiError(400, 'Unknown tracking action.');
+          if (tracked.origin === 'saved' && state.commute?.patternId === tracked.commute.patternId && state.commute?.stopId === tracked.commute.stopId && state.commute?.alightId === tracked.commute.alightId) {
+            const morning = currentRide(state, date);
+            if (tracked.started) { morning.started ??= new Date(tracked.started).toISOString(); morning.acknowledged = true; }
+            if (tracked.left) {
+              morning.left ??= new Date(tracked.left).toISOString();
+              const measured = (tracked.left - tracked.started!) / 60000;
+              if (morning.measured === null && measured >= 5 && measured <= 180) {
+                morning.measured = Math.round(measured); morning.nextReady = learn(state.profile.ready, measured);
+              }
+            }
+            if (tracked.boarded) morning.boarded ??= new Date(tracked.boarded).toISOString();
+            if (tracked.arrived) morning.arrived ??= new Date(tracked.arrived).toISOString();
+          }
+          return state;
+        });
+        json(res, 200, result); return;
+      }
+      if (url.pathname === '/api/agent/preview') {
+        if (input.text !== undefined && (typeof input.text !== 'string' || !input.text.trim() || input.text.length > 1000)) throw new ApiError(400, 'Enter a request of up to 1000 characters.');
+        if (input.forceResearch !== undefined && typeof input.forceResearch !== 'boolean') throw new ApiError(400, 'Research refresh must be true or false.');
+        let selected;
+        try { selected = validateJourney(input.commute, await catalog()); } catch (e) { throw new ApiError(400, (e as Error).message); }
+        const buffer = input.commute?.buffer ?? 7;
+        const boardingMargin = input.commute?.boardingMargin ?? 3;
+        if (!Number.isInteger(buffer) || buffer < 0 || buffer > 60 || !Number.isInteger(boardingMargin) || boardingMargin < 0 || boardingMargin > 20) throw new ApiError(400, 'Choose a buffer between 0 and 60 minutes.');
+        const profile = validateProfile({ ...input.profile, stopCode: selected.stopId });
+        const date = now();
+        let timing = {};
+        try { timing = quickStart(input.quickTiming, date); } catch (e) { throw new ApiError(400, (e as Error).message); }
+        const commute = { ...selected, ...timing, days: [0, 1, 2, 3, 4, 5, 6], buffer, boardingMargin, deadlineFirm: true };
+        let data = null;
+        try { data = await snapshot(profile.stopCode, { commute }); } catch { data = null; }
+        let journey;
+        try { journey = planJourney(await catalog(), commute, profile, data, date, null, null); }
+        catch { journey = { status: 'unavailable', day: localClock(date, 'America/Los_Angeles').date, plan: null, departures: [], reason: 'Schedule unavailable. Nothing was saved.' }; }
+        const researchState = freshAccount();
+        researchState.profile = profile;
+        researchState.commute = commute;
+        researchState.settings = { ...researchState.settings, line: commute.line, headsign: commute.headsign };
+        journey.research = await research(researchState, journey.day, journey.plan ? { start: journey.plan.leave, end: journey.plan.arrive } : undefined, { force: input.forceResearch === true });
+        if (input.text !== undefined) {
+          // A private, request-local state: never enter the account transaction or publish notifications.
+          const temporary = researchState;
+          temporary.briefing = computeBriefing(temporary, { journey }, date);
+          currentRide(temporary, date);
+          const compare = async (s: AccountState, extra: number) => {
+            const p = effectiveProfile(s.profile, currentRide(s, date));
+            return planJourney(await catalog(), s.commute, { ...p, ready: p.ready + extra }, data, date, null, null);
+          };
+          const refreshTemporary = async (s: AccountState) => {
+            const nextJourney = await compare(s, 0);
+            nextJourney.research = await research(s, nextJourney.day, nextJourney.plan ? { start: nextJourney.plan.leave, end: nextJourney.plan.arrive } : undefined);
+            s.briefing = computeBriefing(s, { journey: nextJourney }, date);
+            return s;
+          };
+          const env: ToolEnv = { quick: true, now: () => date, userText: input.text, pushEnabled: () => false,
+            read: async () => temporary, write: async fn => fn(temporary), ride: s => currentRide(s, date), compare, check: refreshTemporary };
+          const answer = await runAssistant({ text: input.text, chat, env });
+          json(res, 200, { ...answer, saved: false, commute, profile: effectiveProfile(temporary.profile, currentRide(temporary, date)), journey: temporary.briefing!.journey }); return;
+        }
+        json(res, 200, { saved: false, commute, profile, journey }); return;
       }
       // Model latency stays outside the storage queue. Re-read current state before applying tools.
       const correction = url.pathname === '/api/agent/correct' ? await (async () => {
@@ -268,7 +450,7 @@ export function createAgentService({ file, token, snapshot = getTransitSnapshot,
             const today = localClock(now(), state.settings.timezone).date;
             const tomorrow = new Date(`${today}T12:00:00Z`); tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
             state.readyOverride = { date: tomorrow.toISOString().slice(0, 10), minutes: correction.minutes };
-            event(state, now(), 'decision', `Mastra interpreted your request. Tomorrow’s getting-ready estimate is ${correction.minutes} minutes. Today’s estimate is unchanged.`);
+            event(state, now(), 'decision', `Neon AI interpreted your request. Tomorrow’s getting-ready estimate is ${correction.minutes} minutes. Today’s estimate is unchanged.`);
           }
           return check(state);
         }
@@ -317,6 +499,13 @@ export function createAgentService({ file, token, snapshot = getTransitSnapshot,
           } else if(input.action==='board'){if(!ride.left)throw new ApiError(409,'Record leaving first.');if(!ride.boarded)ride.boarded=at;
           } else if (input.action === 'arrive') { if (!ride.left) throw new ApiError(409, 'Record leaving first.'); if (!ride.arrived) ride.arrived = at; }
           else throw new ApiError(400, 'Unknown check-in action.');
+          const tracked = state.tracking;
+          if (tracked?.active && tracked.origin === 'saved' && state.commute?.patternId === tracked.commute.patternId && state.commute?.stopId === tracked.commute.stopId && state.commute?.alightId === tracked.commute.alightId) {
+            if (ride.started) tracked.started ??= Date.parse(ride.started);
+            if (ride.left) tracked.left ??= Date.parse(ride.left);
+            if (ride.boarded) tracked.boarded ??= Date.parse(ride.boarded);
+            if (ride.arrived) { tracked.arrived ??= Date.parse(ride.arrived); tracked.active = false; tracked.endedReason = 'Arrival confirmed by you.'; }
+          }
           event(state, date, 'decision', `Check-in: ${input.action}.`, `${ride.date}:checkin:${input.action}`);
           return check(state);
         }

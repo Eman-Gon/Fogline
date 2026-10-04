@@ -9,7 +9,7 @@ Nothing here has been run. No hosting account, app, database or notification top
 - One always-on process (the scheduler runs inside the server). Never run two machines against one account.
 - HTTPS, so the key and briefings are not sent in clear text. Fly provides the certificate and `fly.toml` forces HTTPS.
 - A Neon database (`DATABASE_URL`). The container's disk is not durable, so the local-file fallback must not be used in production.
-- Secrets set on the host, never baked into the image or committed: `FOGLINE_ACCOUNT_TOKEN`, `SF511_API_KEY`, `DATABASE_URL`, `NTFY_TOPIC` (plus optional `MASTRA_GATEWAY_API_KEY`, `EXA_API_KEY`, `NTFY_TOKEN`). `.dockerignore` excludes `.env` and `data/`.
+- Secrets set on the host, never baked into the image or committed: `FOGLINE_ACCOUNT_TOKEN`, `SF511_API_KEY`, `DATABASE_URL`, `NTFY_TOPIC` (plus optional `NEON_AI_GATEWAY_TOKEN`, `NEON_AI_GATEWAY_BASE_URL`, `EXA_API_KEY`, `NTFY_TOKEN`). `.dockerignore` excludes `.env` and `data/`.
 
 ## Fly.io steps (you run these; hosting is paid, so confirm cost first)
 
@@ -38,7 +38,7 @@ Then check `https://<app>.fly.dev/` loads, `GET /api/agent/integrations` with th
 
 - **Short prediction window.** 511 stop predictions cover only the next few trips. On stop 17166 (T line) a mid-day check returned three trips over about 30 minutes. A person who starts getting ready 45 to 60 minutes before leaving will often get no live plan for their trip. Fogline then says "Sample plan, not a live travel recommendation" and uses a built-in sample timetable, which does not reflect their real train. Treat any message with that wording as a placeholder.
 - **No calibrated risk.** A saved commute shows estimates and a buffer, not a percentage; arrival accuracy is not yet measured. Ride duration is whatever the friend typed.
-- **Ask Fogline spends model credits** (Mastra Gateway) per message, needs `MASTRA_GATEWAY_API_KEY`, and has only been tested with a mock model.
+- **Ask Fogline spends model credits** (Neon AI Gateway) per message, needs `NEON_AI_GATEWAY_TOKEN`, `NEON_AI_GATEWAY_BASE_URL`, and uses `gemini-3-flash` by default (`NEON_AI_MODEL` overrides it). Local live tool calls have been verified.
 - **Calls are not real.** Only the push is delivered. Call escalations are log entries.
 - **Fresh data lags.** 511 data is cached for up to 10 minutes.
 - **Setup is technical.** The friend must enter an exact line and destination string as 511 reports it. Expect to sit with them for first-time setup.

@@ -21,3 +21,20 @@ export function time(minutes: number) {
   return `${h % 12 || 12}:${String(m % 60).padStart(2, '0')}`;
 }
 export function clockInput(minutes: number) { return `${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`; }
+export function formatTypedClock(minutes: number) {
+  const m = ((Math.round(minutes) % 1440) + 1440) % 1440;
+  const hour = Math.floor(m / 60);
+  return `${hour % 12 || 12}:${String(m % 60).padStart(2, '0')} ${hour < 12 ? 'AM' : 'PM'}`;
+}
+export function parseTypedClock(text: string) {
+  const match = text.trim().toLowerCase().replace(/\s+/g, '').replace(/\./g, ':').match(/^(\d{1,2})(?::(\d{2}))?(am|pm)?$/);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = match[2] === undefined ? 0 : Number(match[2]);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute) || minute > 59) return null;
+  if (match[3]) {
+    if (hour < 1 || hour > 12) return null;
+    hour = match[3] === 'am' ? (hour === 12 ? 0 : hour) : (hour === 12 ? 12 : hour + 12);
+  } else if (hour > 23) return null;
+  return hour * 60 + minute;
+}

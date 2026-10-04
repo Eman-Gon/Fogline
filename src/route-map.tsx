@@ -30,7 +30,7 @@ function focusPoints(stops: MapStop[], here: { lat: number; lon: number } | null
   return [[here.lat, here.lon], ...nearby.map((stop) => [stop.lat, stop.lon])];
 }
 
-export function RouteMap({ stops, vehicles, selectedId, fitKey, onSelect, shape = [], here = null }: { stops: MapStop[]; vehicles: MapVehicle[]; shape?: number[][]; selectedId?: string; fitKey: string; onSelect?: (stop: MapStop) => void; here?: { lat: number; lon: number } | null }) {
+export function RouteMap({ stops, vehicles, selectedId, destinationId, fitKey, onSelect, shape = [], here = null }: { stops: MapStop[]; vehicles: MapVehicle[]; shape?: number[][]; selectedId?: string; destinationId?: string; fitKey: string; onSelect?: (stop: MapStop) => void; here?: { lat: number; lon: number } | null }) {
   const node = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const groupRef = useRef<any>(null);
@@ -69,14 +69,15 @@ export function RouteMap({ stops, vehicles, selectedId, fitKey, onSelect, shape 
     if (shape.length) L.polyline(shape, { color: '#c54a24', weight: 4, opacity: .8 }).addTo(group);
     for (const stop of stops) {
       const selected = stop.id === selectedId;
+      const destination = stop.id === destinationId;
       const marker = L.circleMarker([stop.lat, stop.lon], {
-        radius: selected ? 9 : 5,
+        radius: selected || destination ? 9 : 5,
         color: '#142b34',
         weight: 2,
-        fillColor: selected ? '#ff9168' : '#142b34',
+        fillColor: selected ? '#ff9168' : destination ? '#288568' : '#142b34',
         fillOpacity: 1,
       });
-      marker.bindTooltip(`${stop.line} · ${stop.name}`, { direction: 'top' });
+      marker.bindTooltip(`${selected ? "Board: " : destination ? "Get off: " : ""}${stop.line} · ${stop.name}`, { direction: 'top' });
       if (onSelect) marker.on('click', () => onSelect(stop));
       marker.addTo(group);
     }
@@ -110,8 +111,8 @@ export function RouteMap({ stops, vehicles, selectedId, fitKey, onSelect, shape 
       fitted.current = fitKey;
     }
     const selected = stops.find((stop) => stop.id === selectedId);
-    if (selected && lastSelected.current !== selectedId) { map.panTo([selected.lat, selected.lon]); lastSelected.current = selectedId || ''; }
-  }, [stops, vehicles, selectedId, fitKey, onSelect, shape, here]);
+    if (!destinationId && selected && lastSelected.current !== selectedId) { map.panTo([selected.lat, selected.lon]); lastSelected.current = selectedId || ''; }
+  }, [stops, vehicles, selectedId, destinationId, fitKey, onSelect, shape, here]);
 
   if (!window.L) return <p role="alert">The map couldn't load. You can still pick a stop from the list.</p>;
   return <div ref={node} className="route-map" role="application" aria-label="Map of your Muni stops and buses" />;

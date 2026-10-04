@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { ExaResearchReport } from './ExaResearchReport';
+import type { CommuteResearch } from './commute-types';
 import { clockInput, type Profile } from './planner';
 import type { AccountState, AgentSettings } from './agent-types';
 
@@ -7,7 +9,7 @@ export function ServerMorning({ profile }: { profile: Profile }) {
   const [account, setAccount] = useState<AccountState | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [research, setResearch] = useState<{ checkedAt: string; sources: { title: string; url: string; publishedAt: string | null }[] } | null>(null);
+  const [research, setResearch] = useState<CommuteResearch | null>(null);
   const [services, setServices] = useState<any>(null);
   const [correction, setCorrection] = useState('');
   const [notificationResult, setNotificationResult] = useState('');
@@ -63,12 +65,12 @@ export function ServerMorning({ profile }: { profile: Profile }) {
         <p className="muted">Checks run every minute, starting 10 minutes before the wake window. 511 data is cached for 10 minutes. Push alerts are sent when ntfy is configured. Phone calls remain previews. Acknowledge or start getting ready to stop escalation.</p><button className="primary" disabled={busy}>Save server preferences</button>
       </form><p>In an alarm-stopped Shortcut, fetch <code>{window.location.origin}/briefing/now</code> with the header <code>Authorization: Bearer YOUR_ACCOUNT_KEY</code>. Read the response’s <code>speech</code> value with Speak Text. Use your server’s HTTPS address on your phone.</p><p className="muted">Stopping the alarm retrieves a briefing. Use “I’m awake” here to stop escalation. The server must be running and reachable.</p></details>
       <section className="briefing">
-        <p className="eyebrow">ADJUST TOMORROW · MASTRA GATEWAY</p>
+        <p className="eyebrow">ADJUST TOMORROW · NEON AI GATEWAY</p>
         <form onSubmit={e => { e.preventDefault(); void action('/api/agent/correct', { text: correction }); }}>
           <label>What should change?<input maxLength={1000} required value={correction} onChange={e => setCorrection(e.target.value)} placeholder="I need 45 minutes to get ready tomorrow" /></label>
           <button className="primary" disabled={busy || !correction.trim()}>Update my morning</button>
         </form>
-        <p className="muted">Supports a total getting-ready time for tomorrow, or reading the current plan. Your request is sent to Mastra Gateway. Times and estimates are calculated by Fogline.</p>
+        <p className="muted">Supports a total getting-ready time for tomorrow, or reading the current plan. Your request is sent to Neon AI Gateway. Times and estimates are calculated by Fogline.</p>
         {account.readyOverride && <p role="status">Saved for {account.readyOverride.date}: <strong>{account.readyOverride.minutes} minutes</strong> to get ready. Today stays unchanged.</p>}
       </section>
       <section className="briefing"><p className="eyebrow">ROUTE RESEARCH · EXA</p>
@@ -76,10 +78,10 @@ export function ServerMorning({ profile }: { profile: Profile }) {
           if (pending.current) return; pending.current = true; setBusy(true); setError('');
           try { setResearch(await request('/api/agent/research', {})); } catch(e) {setError((e as Error).message);} finally { pending.current = false; setBusy(false); }
         }}>Search recent route reports</button>
-        <p className="muted">Searches the past two days. Results are unconfirmed and may be unrelated or outdated. They do not change your arrival estimate.</p>
-        {research && <><small>Checked {stamp(research.checkedAt)}</small>{research.sources.length ? research.sources.map(r => <p key={r.url}><a href={r.url} target="_blank" rel="noopener noreferrer">{r.title}</a><br/><small>Reported · unconfirmed{r.publishedAt ? ` · Published ${r.publishedAt.slice(0,10)}` : ' · Publication date unavailable'}</small></p>) : <p>No recent results returned. This does not confirm that the route is clear.</p>}</>}
+        <p className="muted">Research opens on your ride’s day, two hours before you leave. Reports must have impact times overlapping your trip.</p>
+        {research && <ExaResearchReport research={research} />}
       </section>
-      {services && <p className="muted">Storage: {services.storage === 'neon' ? 'Neon Postgres' : 'local server file'} · Mastra key {services.mastra.configured ? 'configured' : 'missing'} · Exa key {services.exa.configured ? 'configured' : 'missing'}. Key presence alone does not verify a connection.</p>}
+      {services && <p className="muted">Storage: {services.storage === 'neon' ? 'Neon Postgres' : 'local server file'} · Neon AI gateway {services.neonGateway.configured ? 'configured' : 'missing'} · Exa key {services.exa.configured ? 'configured' : 'missing'}. Key presence alone does not verify a connection.</p>}
       <section className="briefing"><p className="eyebrow">PHONE NOTIFICATIONS · NTFY</p>
         {services?.ntfy?.configured ? <>
           <p>In the ntfy phone app, subscribe using server <strong>{services.ntfy.server}</strong> and topic <code>{services.ntfy.topic}</code>. Allow notifications. Keep this topic private: an unprotected topic can be read or published to by anyone who knows its name.</p>

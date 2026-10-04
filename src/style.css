@@ -23,4 +23,54 @@ nav { flex-wrap: wrap; }
 /* The saved commute experience: one column, with the next action first. */
 .commute-app{max-width:900px}.commute-app main{max-width:660px;margin:0 auto}.commute-app h1{font-family:Manrope,sans-serif;font-size:36px;letter-spacing:-1.5px;line-height:1.2}.commute-app .welcome{padding:48px 0}.commute-app .welcome>p{line-height:1.7;color:#53655d}.commute-app nav{margin:24px 0 32px;gap:28px}.commute-app .morning-heading{margin-bottom:26px}.commute-app .morning-heading h1{margin:12px 0}.commute-app .morning-heading>p:last-child{color:#53655d}.commute-app .hero-time{font-size:48px;letter-spacing:-2px;margin:20px 0}.commute-app .plan-times{display:flex;flex-wrap:wrap;gap:20px;margin:20px 0 26px}.plan-times div{display:flex;flex-direction:column;gap:7px}.plan-times small{color:#c3d1cf}.plan-times strong{font-size:20px}.commute-app .journey-card{margin:30px 0;padding:24px;background:#f7f9f5;border:1px solid #c7d3cb;border-radius:12px}.route-badge{display:inline-block;padding:6px 12px;border-radius:7px;background:#142b34;color:#ff9168;margin-right:8px}.trip-ends{padding-left:20px;line-height:1.5}.trip-ends li{margin:18px 0}.commute-app small{display:block;line-height:1.6;color:#53655d}.commute-app .plan small{color:#c3d1cf}.commute-app .notice{padding:18px 22px;border-left:3px solid #b34724;background:#f3e6df;margin:24px 0;overflow-wrap:anywhere}.notice h2{font-size:18px}.commute-app .setup select{width:100%;padding:13px;border:1px solid #b8cabe;border-radius:6px;background:#f8faf7;color:#142b34;margin-top:9px;font:inherit}.line-list{border-top:1px solid #c7d3cb}.line-list .choice{padding:14px 6px}.line-list .choice strong{flex-shrink:0;width:70px}.line-list .choice:disabled{opacity:.65}.commute-app .stop-summary{background:#dde7de;padding:18px 22px;border-radius:10px;margin:20px 0}.ordered-stops{padding-left:30px;max-height:560px;overflow:auto;border-block:1px solid #c7d3cb}.ordered-stops li{padding:16px 10px;border-bottom:1px solid #d5dfd8}.ordered-stops li::marker{color:#677971;font-size:12px}.stop-actions{display:flex;gap:8px;margin-top:9px}.stop-actions button,.days button{border:1px solid #bbc9c2;background:transparent;border-radius:6px;padding:8px 12px;font-size:13px}.stop-actions button[aria-pressed=true],.days button[aria-pressed=true]{background:#142b34;color:#fff}.selected-stop{background:#f3e6df}.commute-app fieldset{border:0;padding:0;margin:24px 0}.days{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.commute-app .cancel{margin:22px 0}.route-stop-list{padding-left:22px}.route-stop-list li{padding:10px 0}.commute-app .history-row{border-bottom:1px solid #c7d3cb;padding:12px 0}.commute-app .check-label{display:flex;align-items:center;gap:10px}.commute-app .check-label input{width:auto;min-height:0;margin:0}.commute-app footer{border-top:1px solid #c7d3cb;margin-top:48px;padding-top:24px}
 .commute-setup .stop-tools{margin:8px 0 4px}.commute-setup .stop-tools>button{background:#142b34;color:#f4f7f2;border-color:#142b34}.commute-setup .stop-tools label{flex:1;min-width:220px;margin:0}.nearby-heading{font-size:16px;margin:18px 0 8px}.closest-stops{list-style:none;padding:0;margin:0 0 12px;border-top:1px solid #c7d3cb}.closest-stops li{padding:12px 4px;border-bottom:1px solid #d5dfd8}.leaflet-div-icon.you-marker{background:transparent;border:0}.you-marker span{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:#1d4e89;color:#fff;border:3px solid #fff;box-shadow:0 0 0 2px #1d4e89;font:700 11px/1 'DM Sans',sans-serif}
+.setup-hero{background:#142b34;color:#f4f7f2;border-radius:16px;padding:24px;margin:8px 0 8px}.setup-hero .eyebrow{color:#ffb199}.setup-hero h1,.setup-hero p{color:#f4f7f2}.setup-hero p{line-height:1.6}.setup-hero .hero-actions{display:flex;gap:10px;margin-top:18px}.setup-hero .hero-actions .primary,.setup-hero .hero-actions .quick-use{flex:1 1 0;width:auto;margin:0;justify-content:center}.setup-hero .quick-use{background:transparent;color:#f4f7f2;border:1.5px solid #ff9168;border-radius:7px;padding:15px 14px;font-weight:700;font-size:15px;min-height:52px}.setup-hero .quick-use:hover{background:#ff916826}.page-menu{display:grid;gap:10px;margin:18px 0 28px}.page-menu.compact{margin-top:8px}.page-link{display:flex;width:100%;justify-content:space-between;align-items:center;gap:12px;text-align:left;background:#f7f9f5;color:#142b34;border:1px solid #c7d3cb;border-radius:12px;padding:14px 16px}.page-link small{color:#53655d}.page-link:hover{background:#e7eee8}.back-link{margin:8px 0 4px}.pair-steps{line-height:1.6;padding-left:20px}.pair-code{font-family:Manrope,sans-serif;font-size:42px;letter-spacing:3px;margin:18px 0 8px}.pair-qr{width:min(280px,100%);height:auto;background:#fff;border:1px solid #c7d3cb;border-radius:12px;margin:8px 0 16px}.scan-video{width:100%;max-height:320px;background:#142b34;border-radius:12px;margin:12px 0;object-fit:cover}
 @media(max-width:600px){.commute-app{padding:0 18px}.commute-app h1{font-size:30px}.commute-app .hero-time{font-size:39px}.commute-app .journey-card{padding:18px}.commute-app .plan-times{gap:16px}.commute-app .fields{grid-template-columns:1fr}.commute-app .mode{font-size:9px}.ordered-stops{max-height:none}.commute-app nav{gap:24px}.commute-app .plan-times strong{font-size:18px}}
+
+.exa-assessment{border:2px solid;border-left-width:6px;border-radius:12px;padding:18px;margin:16px 0}.exa-assessment strong{font-size:1.2rem}.exa-assessment article{margin-top:16px}.exa-red{background:#fff0ee;border-color:#b32924;color:#711b18}.exa-amber{background:#fff6db;border-color:#a36808;color:#674208}.exa-green{background:#e9f7ed;border-color:#277344;color:#194b2d}.exa-unknown{background:#f1f3f3;border-color:#697776;color:#354441}.exa-assessment a{color:inherit;text-decoration:underline}
+
+/* Tracking reports and evidence, kept readable on a phone. */
+.tracking-section { margin: 2rem 0; padding: 1.4rem; background: #fffdf8; border: 1px solid #d9ded4; border-radius: 20px; }
+.tracking-section h2 { margin-top: .4rem; }
+.tracking-reports { padding-left: 1.2rem; }
+.tracking-reports li { padding: .6rem 0; border-bottom: 1px solid #e1e4db; }
+.tracking-reports time { font-size: .8rem; color: #526456; }
+.tracking-reports p { margin: .3rem 0; }
+.tracking-chart { margin: 1.4rem 0; }
+.tracking-chart svg { width: 100%; height: auto; overflow: visible; }
+.tracking-chart text { font-size: 11px; fill: #536052; }
+.chart-baseline { stroke: #a6b4a5; stroke-dasharray: 4 4; }
+.chart-line { fill: none; stroke: #27624b; stroke-width: 3; }
+.chart-point { fill: #c9763d; }
+.tracking-chart figcaption, .tracking-empty { font-size: .85rem; color: #526456; }
+.tracking-bar-row { margin: 1rem 0; }
+.tracking-bar-row > div:first-child { display: flex; justify-content: space-between; gap: .75rem; font-size: .85rem; }
+.tracking-bar-row small { font-weight: normal; }
+.tracking-bar { background: #e6eadf; height: 10px; border-radius: 9px; overflow: hidden; margin-top: .45rem; }
+.tracking-bar span { display: block; background: #39795c; height: 100%; }
+.tracking-probability { padding: 1rem; margin: 1.5rem 0; border-left: 3px solid #c9763d; background: #f3eee0; }
+.tracking-probability p { margin-bottom: 0; }
+.tracking-durations { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); }
+.tracking-durations dt { font-size: .8rem; color: #526456; }
+.tracking-durations dd { margin: .3rem 0; font-weight: 600; }
+.tracking-table { overflow-x: auto; }
+.tracking-table table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.tracking-table th, .tracking-table td { padding: .7rem .4rem; text-align: left; border-bottom: 1px solid #d9ded4; }
+@media(max-width:480px) { .tracking-section { padding: 1rem; } .tracking-view .plan-times { gap: .5rem; } .tracking-view .plan-times strong { font-size: 1.05rem; } }
+
+.arrival-input { padding: 20px; background: #dce6dc; border: 1px solid #b2c4b6; border-radius: 12px; margin: 12px 0 22px; }
+.arrival-input label { font-weight: 700; font-size: 20px; }
+.arrival-input input { font-size: 24px; }
+.arrival-input .muted { margin-bottom: 0; }
+.arrival-status { margin: 18px 0; padding: 18px; border: 1px solid #96b6a0; border-radius: 12px; background: #ecf2e9; color: #193e2d; }
+.arrival-status .arrival-time { display: block; font-size: clamp(34px,7vw,52px); line-height: 1.15; margin-top: 10px; }
+.arrival-status p { margin: 8px 0; color: inherit; }
+.arrival-status small { color: inherit; display: block; line-height: 1.5; }
+.arrival-status.late { background: #ffe7df; border-color: #ce6142; color: #792c1b; }
+.arrival-status.tight { background: #fff1d3; border-color: #b88428; color: #694617; }
+.arrival-status.unknown { background: #eef0ee; border-color: #a4aaa4; color: #39443b; }
+.commute-app .plan .arrival-status small { color: inherit; }
+
+.commute-setup .ready-input { display: block; font-size: 20px; font-weight: 700; margin: 20px 0; }
+.optional-journey-settings { border-top: 1px solid #c7d3cb; border-bottom: 1px solid #c7d3cb; padding: 12px 0; margin: 24px 0; }
+.optional-journey-settings summary { font-weight: 600; font-size: 15px; padding: 10px 0; }
+.optional-journey-settings[open] > .fields { margin: 20px 0; }

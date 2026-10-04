@@ -1,6 +1,7 @@
 import {relevantAdvisories} from './advisories.mjs';
 import { sourceFresh, observationFresh, applicableAlerts } from './realtime.mjs';
 import { getCatalog } from './gtfs.mjs';
+import { stopDetails } from './stop-details.mjs';
 export function compareLines(a, b) {
   const x = String(a.code || a.id), y = String(b.code || b.id);
   const nx = /^\d+/.test(x), ny = /^\d+/.test(y);
@@ -25,7 +26,7 @@ export function patternView(c, line) {
   const route = c.routes[line];
   if (!route) throw Error('This route has no verified schedule in the current feed.');
   const patterns = route.patterns.map(id=>c.patterns[id]).sort((a,b)=>a.direction.localeCompare(b.direction)||b.stopIds.length-a.stopIds.length);
-  return {line:route.id,code:route.code,name:route.name,version:c.version,error:c.error||null,patterns:patterns.map(p=>({...p,stops:p.stopIds.map((id,index)=>({...c.stops[id],line:route.id,sequence:index,pickup:p.pickup[index],dropoff:p.dropoff[index]}))}))};
+  return {line:route.id,code:route.code,name:route.name,version:c.version,error:c.error||null,patterns:patterns.map(p=>({...p,stops:p.stopIds.map((id,index)=>({...c.stops[id],details:stopDetails(c.stops[id]),line:route.id,sequence:index,pickup:p.pickup[index],dropoff:p.dropoff[index]}))}))};
 }
 export function dateParts(at, zone='America/Los_Angeles') {
   return Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(at).map(p=>[p.type,p.value]));
@@ -36,6 +37,16 @@ export function wallTime(day, minute, zone='America/Los_Angeles') {
   const target=Date.parse(day+'T00:00:00Z')+minute*60000; let result=target;
   for(let i=0;i<4;i++) { const p=dateParts(new Date(result),zone); const rendered=Date.UTC(+p.year,+p.month-1,+p.day,+p.hour,+p.minute); const diff=target-rendered; if(!diff)return result;result+=diff; }
   throw Error('That local time does not exist because the clock changes. Choose another deadline.');
+}
+// Quick use starts preparation now or at a later San Francisco time today.
+export function quickStart(timing, now) {
+  if (timing === undefined) return {}; // Existing arrive-by clients.
+  if (timing === 'now') return {startAt: +now};
+  if (typeof timing !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(timing)) throw Error('Choose a valid start time today.');
+  const [h,m] = timing.split(':').map(Number);
+  const startAt = wallTime(dateKey(now), h*60+m);
+  if (startAt <= +now) throw Error('Choose a later time today, or select Start now.');
+  return {startAt};
 }
 export function serviceActive(c,service,day) {
   const compact=day.replaceAll('-',''); const exception=c.exceptions.find(e=>e.service_id===service&&e.date===compact);
@@ -112,12 +123,14 @@ export function assessTrip(trip,commute,snapshot,at) {
 }
 export function planJourney(c,commute,profile,snapshot,now=new Date(),ride=null,previous=null) {
   const at=now.getTime(); const today=dateKey(now); let day=today;
+  const quick=Number.isFinite(commute.startAt);
+  const earliest=quick?Math.max(at,commute.startAt):at;
   const margin=commute.boardingMargin??3;
-  for(let i=0;i<8;i++,day=addDays(day,1)) {
+  for(let i=0;i<(quick?1:8);i++,day=addDays(day,1)) {
     const weekday=new Date(day+'T12:00:00Z').getUTCDay();
     if(!commute.days.includes(weekday))continue;
     const deadline=wallTime(day,profile.arriveBy);
-    if(deadline<=at)continue;
+    if(deadline<=at){if(quick)return {status:'no-fit',day,deadline,plan:null,departures:[],reason:'Your arrive-by time has already passed today. Choose a later arrival deadline.'};continue;}
     const compact=day.replaceAll('-','');
     if(c.start&&compact<c.start||c.end&&compact>c.end)return {status:'unavailable',day,reason:'The verified schedule does not cover this date.',plan:null,departures:[]};
     const p=c.patterns[commute.patternId];
@@ -128,8 +141,8 @@ export function planJourney(c,commute,profile,snapshot,now=new Date(),ride=null,
     const notices=[...new Map(assessed.flatMap(t=>t.disruptions).map(a=>[a.id,a])).values()];
     const rejected=assessed.filter(t=>t.blocked&&t.expected>at).map(t=>({tripId:t.tripId,expected:t.expected,reason:t.blocked}));
     const departures=assessed.filter(t=>!t.blocked&&t.expected>at).map(t=>{const d={...t,beAtStop:t.departure-margin*60000,leave:t.departure-(profile.walk+margin)*60000,start:t.departure-(profile.walk+profile.ready+margin)*60000,arrive:t.arrival+profile.destinationWalk*60000,deadline,boardingMargin:margin,range:null,confidence:'uncalibrated'};
-      return {...d,reachable:d.beAtStop-(walking+(ride?.left?0:remaining))*60000>=at,slackMinutes:Math.floor((deadline-(d.arrive+commute.buffer*60000))/60000)};});
-    const candidates=departures.filter(t=>t.reachable&&t.slackMinutes>=0).sort((a,b)=>b.departure-a.departure);
+      return {...d,reachable:d.beAtStop-(walking+(ride?.left?0:remaining))*60000>=earliest,slackMinutes:Math.floor((deadline-(d.arrive+commute.buffer*60000))/60000)};});
+    const candidates=departures.filter(t=>t.reachable&&t.slackMinutes>=0).sort((a,b)=>quick?a.departure-b.departure:b.departure-a.departure);
     // Trips still reachable with the remaining preparation that miss the deadline; shown only as labeled options.
     const lateOptions=departures.filter(t=>t.reachable&&t.slackMinutes<0).sort((a,b)=>a.arrive-b.arrive).slice(0,3);
     let selected=candidates[0]||null;
@@ -139,7 +152,7 @@ export function planJourney(c,commute,profile,snapshot,now=new Date(),ride=null,
     const warnings=[];
     if(!sourceFresh(snapshot?.realtime?.alerts,at,15*60000))warnings.push('Current service alerts could not be confirmed.');
     const plan=selected;
-    return {status:plan?'ready':rejected.length?'disrupted':departures.length?'no-fit':'no-service',day,plan,alternative:plan?candidates.find(t=>t.tripId!==plan.tripId&&t.departure<plan.departure)||null:null,departures:departures.slice(0,8),lateOptions,rejected,notices,warnings,advisories:relevantAdvisories(snapshot?.realtime?.advisories,commute,day),advisoryCoverage:snapshot?.realtime?.advisories?.error||snapshot?.realtime?.advisories?.coverage||'Official event notices have not been checked.',modelStatus:'Collecting evidence; no calibrated arrival range yet.',reason:plan?(plan.source==='live'?'Provider prediction matched to this trip and stop.':'Scheduled estimate; no confirmed live prediction for this boarding.'):(rejected.length?'Some trips cannot serve your journey. Review service notices.':departures.length?'No remaining trip fits your deadline and preparation time.':'No remaining scheduled service for this journey on this date.'),catalogWarning:c.error||null};
+    return {status:plan?'ready':rejected.length?'disrupted':departures.length?'no-fit':'no-service',day,plan,alternative:plan?candidates.find(t=>t.tripId!==plan.tripId&&t.departure<plan.departure)||null:null,departures:departures.slice(0,8),lateOptions,rejected,notices,warnings,advisories:relevantAdvisories(snapshot?.realtime?.advisories,commute,day),advisoryCoverage:snapshot?.realtime?.advisories?.error||snapshot?.realtime?.advisories?.coverage||'Official event notices have not been checked.',modelStatus:'Collecting evidence; no calibrated arrival range yet.',reason:plan?(plan.source==='live'?'Provider prediction matched to this trip and stop.':'Scheduled estimate; no confirmed live prediction for this boarding.'):(rejected.length?'Some trips cannot serve your journey. Review service notices.':departures.length?(quick?'No trip today meets your arrival deadline and buffer after preparation and walking.':'No remaining trip fits your deadline and preparation time.'):'No remaining scheduled service for this journey on this date.'),catalogWarning:c.error||null};
   }
   return {status:'unavailable',day,plan:null,departures:[],reason:'Choose at least one travel day.'};
 }

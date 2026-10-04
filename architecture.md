@@ -71,7 +71,7 @@ Every endpoint below requires `Authorization: Bearer <account key>`. Mutations r
 | POST | `/api/agent/checkin` | `{ action }`, using server timestamps |
 | GET | `/briefing/now` | Structured briefing for the phone |
 | GET | `/api/agent/integrations` | Provider configuration and recorded health |
-| POST | `/api/agent/correct` | Interpret a next-day preparation correction through Mastra Gateway |
+| POST | `/api/agent/correct` | Interpret a next-day preparation correction through Neon AI Gateway |
 | POST | `/api/agent/research` | On-demand Exa route reports |
 | POST | `/api/agent/notifications/test` | Send an ntfy test push |
 
@@ -79,4 +79,4 @@ Every endpoint below requires `Authorization: Bearer <account key>`. Mutations r
 
 ## Still to connect
 
-Phone verification for ntfy, actual call delivery and provider acknowledgement callbacks, iPhone alarm automation, an always-on app host and backups, wider schedule coverage, and personal transit-risk calibration. Neon storage, Mastra Gateway corrections and Exa research are implemented; their configuration and verification are described in README and api.md. This slice provides a working server loop and account while preserving the labeled demo.
+Phone verification for ntfy, actual call delivery and provider acknowledgement callbacks, iPhone alarm automation, an always-on app host and backups, wider schedule coverage, and personal transit-risk calibration. Neon storage, Neon AI Gateway corrections and Exa research are implemented; their configuration and verification are described in README and api.md. This slice provides a working server loop and account while preserving the labeled demo.

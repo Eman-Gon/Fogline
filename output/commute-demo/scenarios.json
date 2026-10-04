@@ -1,0 +1,248 @@
+{
+  "day": "2026-10-05",
+  "wake": "08:15",
+  "deadline": "09:22",
+  "mode": "Real cached GTFS schedule only; no live morning predictions",
+  "feed": {
+    "version": "20260829",
+    "start": "20260829",
+    "end": "20270115"
+  },
+  "commute": {
+    "line": "15",
+    "code": "15",
+    "patternId": "9d4d02c38bab995f0f8d",
+    "direction": "1",
+    "directionLabel": "Inbound",
+    "headsign": "Sutter & Sansome",
+    "boardIndex": 2,
+    "alightIndex": 26,
+    "stopId": "15869",
+    "stopName": "Palou Ave & Ingalls St",
+    "alightId": "16606",
+    "alightName": "Sutter St & Sansome St",
+    "catalogVersion": "20260829",
+    "days": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "buffer": 7,
+    "boardingMargin": 3,
+    "deadlineFirm": true
+  },
+  "assumptions": {
+    "walkToStop": 6,
+    "walkAfterStop": 5,
+    "boardingMargin": 3,
+    "arrivalBuffer": 7
+  },
+  "cases": [
+    {
+      "ready": 20,
+      "status": "no-fit",
+      "reason": "No remaining trip fits your deadline and preparation time.",
+      "firstReachable": {
+        "bus": "08:53:47 AM",
+        "workArrival": "09:32:00 AM",
+        "minutesLate": 10
+      },
+      "departures": [
+        {
+          "bus": "08:23:47 AM",
+          "workArrival": "09:02:00 AM",
+          "latestStart": "07:54:47 AM",
+          "reachable": false,
+          "bufferSlack": 13
+        },
+        {
+          "bus": "08:38:47 AM",
+          "workArrival": "09:17:00 AM",
+          "latestStart": "08:09:47 AM",
+          "reachable": false,
+          "bufferSlack": -2
+        },
+        {
+          "bus": "08:53:47 AM",
+          "workArrival": "09:32:00 AM",
+          "latestStart": "08:24:47 AM",
+          "reachable": true,
+          "bufferSlack": -17
+        },
+        {
+          "bus": "09:05:47 AM",
+          "workArrival": "09:44:00 AM",
+          "latestStart": "08:36:47 AM",
+          "reachable": true,
+          "bufferSlack": -29
+        },
+        {
+          "bus": "09:17:47 AM",
+          "workArrival": "09:56:00 AM",
+          "latestStart": "08:48:47 AM",
+          "reachable": true,
+          "bufferSlack": -41
+        },
+        {
+          "bus": "09:29:47 AM",
+          "workArrival": "10:08:00 AM",
+          "latestStart": "09:00:47 AM",
+          "reachable": true,
+          "bufferSlack": -53
+        },
+        {
+          "bus": "09:41:47 AM",
+          "workArrival": "10:20:00 AM",
+          "latestStart": "09:12:47 AM",
+          "reachable": true,
+          "bufferSlack": -65
+        },
+        {
+          "bus": "09:53:47 AM",
+          "workArrival": "10:32:00 AM",
+          "latestStart": "09:24:47 AM",
+          "reachable": true,
+          "bufferSlack": -77
+        }
+      ]
+    },
+    {
+      "ready": 25,
+      "status": "no-fit",
+      "reason": "No remaining trip fits your deadline and preparation time.",
+      "firstReachable": {
+        "bus": "08:53:47 AM",
+        "workArrival": "09:32:00 AM",
+        "minutesLate": 10
+      },
+      "departures": [
+        {
+          "bus": "08:23:47 AM",
+          "workArrival": "09:02:00 AM",
+          "latestStart": "07:49:47 AM",
+          "reachable": false,
+          "bufferSlack": 13
+        },
+        {
+          "bus": "08:38:47 AM",
+          "workArrival": "09:17:00 AM",
+          "latestStart": "08:04:47 AM",
+          "reachable": false,
+          "bufferSlack": -2
+        },
+        {
+          "bus": "08:53:47 AM",
+          "workArrival": "09:32:00 AM",
+          "latestStart": "08:19:47 AM",
+          "reachable": true,
+          "bufferSlack": -17
+        },
+        {
+          "bus": "09:05:47 AM",
+          "workArrival": "09:44:00 AM",
+          "latestStart": "08:31:47 AM",
+          "reachable": true,
+          "bufferSlack": -29
+        },
+        {
+          "bus": "09:17:47 AM",
+          "workArrival": "09:56:00 AM",
+          "latestStart": "08:43:47 AM",
+          "reachable": true,
+          "bufferSlack": -41
+        },
+        {
+          "bus": "09:29:47 AM",
+          "workArrival": "10:08:00 AM",
+          "latestStart": "08:55:47 AM",
+          "reachable": true,
+          "bufferSlack": -53
+        },
+        {
+          "bus": "09:41:47 AM",
+          "workArrival": "10:20:00 AM",
+          "latestStart": "09:07:47 AM",
+          "reachable": true,
+          "bufferSlack": -65
+        },
+        {
+          "bus": "09:53:47 AM",
+          "workArrival": "10:32:00 AM",
+          "latestStart": "09:19:47 AM",
+          "reachable": true,
+          "bufferSlack": -77
+        }
+      ]
+    },
+    {
+      "ready": 30,
+      "status": "no-fit",
+      "reason": "No remaining trip fits your deadline and preparation time.",
+      "firstReachable": {
+        "bus": "09:05:47 AM",
+        "workArrival": "09:44:00 AM",
+        "minutesLate": 22
+      },
+      "departures": [
+        {
+          "bus": "08:23:47 AM",
+          "workArrival": "09:02:00 AM",
+          "latestStart": "07:44:47 AM",
+          "reachable": false,
+          "bufferSlack": 13
+        },
+        {
+          "bus": "08:38:47 AM",
+          "workArrival": "09:17:00 AM",
+          "latestStart": "07:59:47 AM",
+          "reachable": false,
+          "bufferSlack": -2
+        },
+        {
+          "bus": "08:53:47 AM",
+          "workArrival": "09:32:00 AM",
+          "latestStart": "08:14:47 AM",
+          "reachable": false,
+          "bufferSlack": -17
+        },
+        {
+          "bus": "09:05:47 AM",
+          "workArrival": "09:44:00 AM",
+          "latestStart": "08:26:47 AM",
+          "reachable": true,
+          "bufferSlack": -29
+        },
+        {
+          "bus": "09:17:47 AM",
+          "workArrival": "09:56:00 AM",
+          "latestStart": "08:38:47 AM",
+          "reachable": true,
+          "bufferSlack": -41
+        },
+        {
+          "bus": "09:29:47 AM",
+          "workArrival": "10:08:00 AM",
+          "latestStart": "08:50:47 AM",
+          "reachable": true,
+          "bufferSlack": -53
+        },
+        {
+          "bus": "09:41:47 AM",
+          "workArrival": "10:20:00 AM",
+          "latestStart": "09:02:47 AM",
+          "reachable": true,
+          "bufferSlack": -65
+        },
+        {
+          "bus": "09:53:47 AM",
+          "workArrival": "10:32:00 AM",
+          "latestStart": "09:14:47 AM",
+          "reachable": true,
+          "bufferSlack": -77
+        }
+      ]
+    }
+  ]
+}
