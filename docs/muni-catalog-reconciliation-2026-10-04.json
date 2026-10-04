@@ -1,0 +1,662 @@
+{
+  "reviewedAt": "2026-10-04T20:26:44.630Z",
+  "source": "https://www.sfmta.com/getting-around/muni/routes-stops",
+  "method": "Manually transcribed all 73 directory entries; matched numeric route labels and named-service aliases to the app endpoint. Missing-service comparison keys are not verified upstream IDs. Numeric SFMTA labels contain route codes only to avoid copying the directory descriptions.",
+  "scope": "Catalog presence only; not proof of current operation, complete stops, or end-to-end support.",
+  "appFetchedAt": 1791145503566,
+  "summary": {
+    "directoryEntries": 73,
+    "appEntries": 68,
+    "matched": 67,
+    "missing": [
+      "78X",
+      "KLM Bus Muni Metro Shuttle",
+      "L Taraval Bus",
+      "M Ocean View Bus",
+      "S Shuttle",
+      "SF"
+    ],
+    "appOnly": [
+      {
+        "id": "FBUS",
+        "name": "MARKET & WHARVES BUS",
+        "mode": "bus"
+      }
+    ]
+  },
+  "rows": [
+    {
+      "comparisonKey": "1",
+      "sfmtaLabel": "1",
+      "appMatch": {
+        "id": "1",
+        "name": "CALIFORNIA",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "1X",
+      "sfmtaLabel": "1X",
+      "appMatch": {
+        "id": "1X",
+        "name": "CALIFORNIA EXPRESS",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "2",
+      "sfmtaLabel": "2",
+      "appMatch": {
+        "id": "2",
+        "name": "SUTTER",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "5",
+      "sfmtaLabel": "5",
+      "appMatch": {
+        "id": "5",
+        "name": "FULTON",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "5R",
+      "sfmtaLabel": "5R",
+      "appMatch": {
+        "id": "5R",
+        "name": "FULTON RAPID",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "6",
+      "sfmtaLabel": "6",
+      "appMatch": {
+        "id": "6",
+        "name": "HAYES-PARNASSUS",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "7",
+      "sfmtaLabel": "7",
+      "appMatch": {
+        "id": "7",
+        "name": "HAIGHT-NORIEGA",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "8",
+      "sfmtaLabel": "8",
+      "appMatch": {
+        "id": "8",
+        "name": "BAYSHORE",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "8AX",
+      "sfmtaLabel": "8AX",
+      "appMatch": {
+        "id": "8AX",
+        "name": "BAYSHORE A EXPRESS",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "8BX",
+      "sfmtaLabel": "8BX",
+      "appMatch": {
+        "id": "8BX",
+        "name": "BAYSHORE B EXPRESS",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "9",
+      "sfmtaLabel": "9",
+      "appMatch": {
+        "id": "9",
+        "name": "SAN BRUNO",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "9R",
+      "sfmtaLabel": "9R",
+      "appMatch": {
+        "id": "9R",
+        "name": "SAN BRUNO RAPID",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "12",
+      "sfmtaLabel": "12",
+      "appMatch": {
+        "id": "12",
+        "name": "FOLSOM-PACIFIC",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "14",
+      "sfmtaLabel": "14",
+      "appMatch": {
+        "id": "14",
+        "name": "MISSION",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "14R",
+      "sfmtaLabel": "14R",
+      "appMatch": {
+        "id": "14R",
+        "name": "MISSION RAPID",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "15",
+      "sfmtaLabel": "15",
+      "appMatch": {
+        "id": "15",
+        "name": "BAYVIEW HUNTERS POINT EXPRESS",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "18",
+      "sfmtaLabel": "18",
+      "appMatch": {
+        "id": "18",
+        "name": "46TH AVENUE",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "19",
+      "sfmtaLabel": "19",
+      "appMatch": {
+        "id": "19",
+        "name": "POLK",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "22",
+      "sfmtaLabel": "22",
+      "appMatch": {
+        "id": "22",
+        "name": "FILLMORE",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "23",
+      "sfmtaLabel": "23",
+      "appMatch": {
+        "id": "23",
+        "name": "MONTEREY",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "24",
+      "sfmtaLabel": "24",
+      "appMatch": {
+        "id": "24",
+        "name": "DIVISADERO",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "25",
+      "sfmtaLabel": "25",
+      "appMatch": {
+        "id": "25",
+        "name": "TREASURE ISLAND",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "27",
+      "sfmtaLabel": "27",
+      "appMatch": {
+        "id": "27",
+        "name": "BRYANT",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "28",
+      "sfmtaLabel": "28",
+      "appMatch": {
+        "id": "28",
+        "name": "19TH AVENUE",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "28R",
+      "sfmtaLabel": "28R",
+      "appMatch": {
+        "id": "28R",
+        "name": "19TH AVENUE RAPID",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "29",
+      "sfmtaLabel": "29",
+      "appMatch": {
+        "id": "29",
+        "name": "SUNSET",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "30",
+      "sfmtaLabel": "30",
+      "appMatch": {
+        "id": "30",
+        "name": "STOCKTON",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "30X",
+      "sfmtaLabel": "30X",
+      "appMatch": {
+        "id": "30X",
+        "name": "MARINA EXPRESS",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "31",
+      "sfmtaLabel": "31",
+      "appMatch": {
+        "id": "31",
+        "name": "BALBOA",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "33",
+      "sfmtaLabel": "33",
+      "appMatch": {
+        "id": "33",
+        "name": "ASHBURY-18TH ST",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "35",
+      "sfmtaLabel": "35",
+      "appMatch": {
+        "id": "35",
+        "name": "EUREKA",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "36",
+      "sfmtaLabel": "36",
+      "appMatch": {
+        "id": "36",
+        "name": "TERESITA",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "37",
+      "sfmtaLabel": "37",
+      "appMatch": {
+        "id": "37",
+        "name": "CORBETT",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "38",
+      "sfmtaLabel": "38",
+      "appMatch": {
+        "id": "38",
+        "name": "GEARY",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "38R",
+      "sfmtaLabel": "38R",
+      "appMatch": {
+        "id": "38R",
+        "name": "GEARY RAPID",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "39",
+      "sfmtaLabel": "39",
+      "appMatch": {
+        "id": "39",
+        "name": "COIT",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "43",
+      "sfmtaLabel": "43",
+      "appMatch": {
+        "id": "43",
+        "name": "MASONIC",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "44",
+      "sfmtaLabel": "44",
+      "appMatch": {
+        "id": "44",
+        "name": "O'SHAUGHNESSY",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "45",
+      "sfmtaLabel": "45",
+      "appMatch": {
+        "id": "45",
+        "name": "UNION-STOCKTON",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "48",
+      "sfmtaLabel": "48",
+      "appMatch": {
+        "id": "48",
+        "name": "QUINTARA-24TH STREET",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "49",
+      "sfmtaLabel": "49",
+      "appMatch": {
+        "id": "49",
+        "name": "VAN NESS-MISSION",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "52",
+      "sfmtaLabel": "52",
+      "appMatch": {
+        "id": "52",
+        "name": "EXCELSIOR",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "54",
+      "sfmtaLabel": "54",
+      "appMatch": {
+        "id": "54",
+        "name": "FELTON",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "55",
+      "sfmtaLabel": "55",
+      "appMatch": {
+        "id": "55",
+        "name": "DOGPATCH",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "56",
+      "sfmtaLabel": "56",
+      "appMatch": {
+        "id": "56",
+        "name": "RUTLAND",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "57",
+      "sfmtaLabel": "57",
+      "appMatch": {
+        "id": "57",
+        "name": "PARKMERCED",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "58",
+      "sfmtaLabel": "58",
+      "appMatch": {
+        "id": "58",
+        "name": "LAKE MERCED",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "66",
+      "sfmtaLabel": "66",
+      "appMatch": {
+        "id": "66",
+        "name": "QUINTARA",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "67",
+      "sfmtaLabel": "67",
+      "appMatch": {
+        "id": "67",
+        "name": "BERNAL HEIGHTS",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "78X",
+      "sfmtaLabel": "78X",
+      "appMatch": null
+    },
+    {
+      "comparisonKey": "90",
+      "sfmtaLabel": "90",
+      "appMatch": {
+        "id": "90",
+        "name": "SAN BRUNO OWL",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "91",
+      "sfmtaLabel": "91",
+      "appMatch": {
+        "id": "91",
+        "name": "3RD-19TH AVE OWL",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "714",
+      "sfmtaLabel": "714",
+      "appMatch": {
+        "id": "714",
+        "name": "BART EARLY BIRD",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "F",
+      "sfmtaLabel": "F Market & Wharves",
+      "appMatch": {
+        "id": "F",
+        "name": "MARKET & WHARVES",
+        "mode": "metro"
+      }
+    },
+    {
+      "comparisonKey": "J",
+      "sfmtaLabel": "J Church",
+      "appMatch": {
+        "id": "J",
+        "name": "CHURCH",
+        "mode": "metro"
+      }
+    },
+    {
+      "comparisonKey": "KLM",
+      "sfmtaLabel": "KLM Bus Muni Metro Shuttle",
+      "appMatch": null
+    },
+    {
+      "comparisonKey": "K",
+      "sfmtaLabel": "K Ingleside",
+      "appMatch": {
+        "id": "K",
+        "name": "INGLESIDE",
+        "mode": "metro"
+      }
+    },
+    {
+      "comparisonKey": "KBUS",
+      "sfmtaLabel": "K Ingleside Bus",
+      "appMatch": {
+        "id": "KBUS",
+        "name": "INGLESIDE BUS",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "L",
+      "sfmtaLabel": "L Taraval",
+      "appMatch": {
+        "id": "L",
+        "name": "TARAVAL",
+        "mode": "metro"
+      }
+    },
+    {
+      "comparisonKey": "LOWL",
+      "sfmtaLabel": "L Owl",
+      "appMatch": {
+        "id": "LOWL",
+        "name": "OWL TARAVAL",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "LBUS",
+      "sfmtaLabel": "L Taraval Bus",
+      "appMatch": null
+    },
+    {
+      "comparisonKey": "M",
+      "sfmtaLabel": "M Ocean View",
+      "appMatch": {
+        "id": "M",
+        "name": "OCEAN VIEW",
+        "mode": "metro"
+      }
+    },
+    {
+      "comparisonKey": "MBUS",
+      "sfmtaLabel": "M Ocean View Bus",
+      "appMatch": null
+    },
+    {
+      "comparisonKey": "N",
+      "sfmtaLabel": "N Judah",
+      "appMatch": {
+        "id": "N",
+        "name": "JUDAH",
+        "mode": "metro"
+      }
+    },
+    {
+      "comparisonKey": "NOWL",
+      "sfmtaLabel": "N Owl",
+      "appMatch": {
+        "id": "NOWL",
+        "name": "OWL JUDAH",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "NBUS",
+      "sfmtaLabel": "N Judah Bus",
+      "appMatch": {
+        "id": "NBUS",
+        "name": "JUDAH BUS",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "S",
+      "sfmtaLabel": "S Shuttle",
+      "appMatch": null
+    },
+    {
+      "comparisonKey": "T",
+      "sfmtaLabel": "T Third Street",
+      "appMatch": {
+        "id": "T",
+        "name": "THIRD",
+        "mode": "metro"
+      }
+    },
+    {
+      "comparisonKey": "TBUS",
+      "sfmtaLabel": "T Third Street Bus",
+      "appMatch": {
+        "id": "TBUS",
+        "name": "THIRD BUS",
+        "mode": "bus"
+      }
+    },
+    {
+      "comparisonKey": "CA",
+      "sfmtaLabel": "California Cable Car",
+      "appMatch": {
+        "id": "CA",
+        "name": "CALIFORNIA STREET CABLE CAR",
+        "mode": "cableway"
+      }
+    },
+    {
+      "comparisonKey": "PH",
+      "sfmtaLabel": "Powell / Hyde Cable Car",
+      "appMatch": {
+        "id": "PH",
+        "name": "POWELL-HYDE CABLE CAR",
+        "mode": "cableway"
+      }
+    },
+    {
+      "comparisonKey": "PM",
+      "sfmtaLabel": "Powell / Mason Cable Car",
+      "appMatch": {
+        "id": "PM",
+        "name": "POWELL-MASON CABLE CAR",
+        "mode": "cableway"
+      }
+    },
+    {
+      "comparisonKey": "SF",
+      "sfmtaLabel": "SF",
+      "appMatch": null
+    }
+  ]
+}

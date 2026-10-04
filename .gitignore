@@ -1,0 +1,7 @@
+.rocketride/
+.env
+
+node_modules/
+dist/
+.DS_Store
+data/

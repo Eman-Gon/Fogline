@@ -1,0 +1,26 @@
+{
+  "name": "fogline",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "start": "node --import tsx server.mjs",
+    "account": "node server/setup-account.mjs",
+    "build": "tsc && vite build",
+    "test": "node --import tsx --test src/planner.test.ts server/*.test.ts"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "tsx": "4.19.2"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.5",
+    "@types/react": "19.0.3",
+    "@types/react-dom": "19.0.2",
+    "typescript": "5.7.3",
+    "vite": "6.0.11"
+  }
+}

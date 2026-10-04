@@ -1,0 +1,26 @@
+# Review before deploying. Run only ONE machine: the scheduler and storage assume a single process.
+app = "fogline-CHANGE-ME"
+primary_region = "sjc"
+
+[build]
+
+[env]
+  PORT = "4173"
+
+[http_service]
+  internal_port = 4173
+  force_https = true
+  auto_stop_machines = "off"   # the minute-by-minute morning checks need a running process
+  auto_start_machines = false
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
