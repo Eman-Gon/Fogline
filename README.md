@@ -46,6 +46,19 @@ An iPhone Shortcut can GET `/briefing/now` with `Authorization: Bearer YOUR_ACCO
 
 Existing constrained Mastra correction and Exa research endpoints remain on the server; the simplified interface does not surface them. See [DEPLOY.md](DEPLOY.md) for hosting guidance, noting that older screen names there may refer to the previous interface.
 
+## Ask Fogline: the adaptive morning
+
+On Today, **Ask Fogline** accepts messages such as “I’m 20 minutes behind,” “Today 9:15 is fine,” or “I’m working from home today.” A model (Mastra Gateway) chooses among five bounded tools; Fogline’s code does every calculation.
+
+- Tools: read morning state, compare validated departures, record extra preparation for today, apply a one-day exception (a new arrive-by time, or a day off), and queue one notification.
+- Limits enforced in code: at most four model rounds and three tool calls per round; a new deadline is accepted only if the user typed that exact time; a day off needs an explicit request; extra preparation is capped at 120 minutes; at most two agent notifications a day, each with Fogline-written wording. Exceptions apply to today only and never change the weekly schedule or the learned preparation time.
+- The model’s reply is shown only if every clock time in it came from a tool result or the user’s message and it contains no percentage. Otherwise Fogline shows its own calculated briefing. Alert text from 511 is never sent to the model.
+- Morning stage (planned, unconfirmed, preparing, ready, walking, riding, arrived, skipped) is derived from check-ins and the clock. No response is “unconfirmed,” not “asleep.”
+- **Firm deadline** (My commute): when no trip meets it, Fogline lists the options that miss it, with how far past the deadline each arrives, and asks. This is guided by the assistant’s instructions, not enforced by code; code guarantees only that nothing changes unless the user typed the new time.
+- The spoken briefing states how old a live prediction is, says when only the schedule is available, and says disruption status is unknown when alerts cannot be confirmed. Fogline states no on-time percentage for a saved commute.
+
+Not built: model-scheduled rechecks (one-minute checks already run in the wake window), vehicle-movement corroboration, calibrated arrival probabilities. Verified only with a scripted mock model; the real Gateway model has not been exercised, and each message spends Gateway credits.
+
 ## Validation
 
 ```sh

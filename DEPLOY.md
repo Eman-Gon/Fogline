@@ -37,8 +37,8 @@ Then check `https://<app>.fly.dev/` loads, `GET /api/agent/integrations` with th
 ## Limits to tell the friend up front
 
 - **Short prediction window.** 511 stop predictions cover only the next few trips. On stop 17166 (T line) a mid-day check returned three trips over about 30 minutes. A person who starts getting ready 45 to 60 minutes before leaving will often get no live plan for their trip. Fogline then says "Sample plan, not a live travel recommendation" and uses a built-in sample timetable, which does not reflect their real train. Treat any message with that wording as a placeholder.
-- **Risk is a placeholder.** The on-time odds come from 14 seeded delay values, not from the friend's line. Ride duration is whatever they typed. Recorded rides do not yet recalibrate it.
-- **A "fits" percentage is not a prediction.** Do not present it as one.
+- **No calibrated risk.** A saved commute shows estimates and a buffer, not a percentage; arrival accuracy is not yet measured. Ride duration is whatever the friend typed.
+- **Ask Fogline spends model credits** (Mastra Gateway) per message, needs `MASTRA_GATEWAY_API_KEY`, and has only been tested with a mock model.
 - **Calls are not real.** Only the push is delivered. Call escalations are log entries.
 - **Fresh data lags.** 511 data is cached for up to 10 minutes.
 - **Setup is technical.** The friend must enter an exact line and destination string as 511 reports it. Expect to sit with them for first-time setup.

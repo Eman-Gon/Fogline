@@ -127,8 +127,11 @@ export function planJourney(c,commute,profile,snapshot,now=new Date(),ride=null,
     const assessed=scheduledJourneys(c,commute,day).map(t=>assessTrip(t,commute,snapshot,at));
     const notices=[...new Map(assessed.flatMap(t=>t.disruptions).map(a=>[a.id,a])).values()];
     const rejected=assessed.filter(t=>t.blocked&&t.expected>at).map(t=>({tripId:t.tripId,expected:t.expected,reason:t.blocked}));
-    const departures=assessed.filter(t=>!t.blocked&&t.expected>at).map(t=>({...t,beAtStop:t.departure-margin*60000,leave:t.departure-(profile.walk+margin)*60000,start:t.departure-(profile.walk+profile.ready+margin)*60000,arrive:t.arrival+profile.destinationWalk*60000,deadline,boardingMargin:margin,range:null,confidence:'uncalibrated'}));
-    const candidates=departures.filter(t=>t.beAtStop-(walking+(ride?.left?0:remaining))*60000>=at&&t.arrive+commute.buffer*60000<=deadline).sort((a,b)=>b.departure-a.departure);
+    const departures=assessed.filter(t=>!t.blocked&&t.expected>at).map(t=>{const d={...t,beAtStop:t.departure-margin*60000,leave:t.departure-(profile.walk+margin)*60000,start:t.departure-(profile.walk+profile.ready+margin)*60000,arrive:t.arrival+profile.destinationWalk*60000,deadline,boardingMargin:margin,range:null,confidence:'uncalibrated'};
+      return {...d,reachable:d.beAtStop-(walking+(ride?.left?0:remaining))*60000>=at,slackMinutes:Math.floor((deadline-(d.arrive+commute.buffer*60000))/60000)};});
+    const candidates=departures.filter(t=>t.reachable&&t.slackMinutes>=0).sort((a,b)=>b.departure-a.departure);
+    // Trips still reachable with the remaining preparation that miss the deadline; shown only as labeled options.
+    const lateOptions=departures.filter(t=>t.reachable&&t.slackMinutes<0).sort((a,b)=>a.arrive-b.arrive).slice(0,3);
     let selected=candidates[0]||null;
     // Keep the previously advised trip while it remains feasible; don't move departure later silently.
     if(previous?.day===day&&previous.plan){const same=candidates.find(t=>t.tripId===previous.plan.tripId);if(same)selected=same;}
@@ -136,7 +139,7 @@ export function planJourney(c,commute,profile,snapshot,now=new Date(),ride=null,
     const warnings=[];
     if(!sourceFresh(snapshot?.realtime?.alerts,at,15*60000))warnings.push('Current service alerts could not be confirmed.');
     const plan=selected;
-    return {status:plan?'ready':rejected.length?'disrupted':departures.length?'no-fit':'no-service',day,plan,alternative:plan?candidates.find(t=>t.tripId!==plan.tripId&&t.departure<plan.departure)||null:null,departures:departures.slice(0,8),rejected,notices,warnings,advisories:relevantAdvisories(snapshot?.realtime?.advisories,commute,day),advisoryCoverage:snapshot?.realtime?.advisories?.error||snapshot?.realtime?.advisories?.coverage||'Official event notices have not been checked.',modelStatus:'Collecting evidence; no calibrated arrival range yet.',reason:plan?(plan.source==='live'?'Provider prediction matched to this trip and stop.':'Scheduled estimate; no confirmed live prediction for this boarding.'):(rejected.length?'Some trips cannot serve your journey. Review service notices.':departures.length?'No remaining trip fits your deadline and preparation time.':'No remaining scheduled service for this journey on this date.'),catalogWarning:c.error||null};
+    return {status:plan?'ready':rejected.length?'disrupted':departures.length?'no-fit':'no-service',day,plan,alternative:plan?candidates.find(t=>t.tripId!==plan.tripId&&t.departure<plan.departure)||null:null,departures:departures.slice(0,8),lateOptions,rejected,notices,warnings,advisories:relevantAdvisories(snapshot?.realtime?.advisories,commute,day),advisoryCoverage:snapshot?.realtime?.advisories?.error||snapshot?.realtime?.advisories?.coverage||'Official event notices have not been checked.',modelStatus:'Collecting evidence; no calibrated arrival range yet.',reason:plan?(plan.source==='live'?'Provider prediction matched to this trip and stop.':'Scheduled estimate; no confirmed live prediction for this boarding.'):(rejected.length?'Some trips cannot serve your journey. Review service notices.':departures.length?'No remaining trip fits your deadline and preparation time.':'No remaining scheduled service for this journey on this date.'),catalogWarning:c.error||null};
   }
   return {status:'unavailable',day,plan:null,departures:[],reason:'Choose at least one travel day.'};
 }

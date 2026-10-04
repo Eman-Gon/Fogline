@@ -58,6 +58,18 @@ export async function interpretCorrection(text: string, request = fetch): Promis
   return decodeCorrection(data);
 }
 
+// One model turn with tools. Callers execute tool calls themselves; nothing here trusts model output.
+export async function chatWithTools(messages: unknown[], tools: readonly unknown[], request = fetch): Promise<any> {
+  const key = process.env.MASTRA_GATEWAY_API_KEY;
+  if (!key) throw new IntegrationError('Mastra Gateway is not configured on the server.');
+  const data = await post('mastra', 'https://gateway-api.mastra.ai/v1/chat/completions', { Authorization: `Bearer ${key}` }, {
+    model: process.env.MASTRA_MODEL || 'google/gemini-2.5-flash', temperature: 0, messages, tools, tool_choice: 'auto',
+  }, request);
+  const message = data?.choices?.[0]?.message;
+  if (!message || typeof message !== 'object') throw new IntegrationError('Mastra Gateway returned an unexpected response.');
+  return message;
+}
+
 export type Research = { checkedAt: string; query: string; sources: { title: string; url: string; publishedAt: string | null }[] };
 const researchCache = new Map<string, { until: number; value: Research }>();
 export async function researchRoute(state: AccountState, request = fetch): Promise<Research> {

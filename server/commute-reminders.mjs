@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 export function planKey(journey) {return createHash('sha256').update(JSON.stringify([journey?.day,journey?.status,journey?.plan?.tripId,journey?.plan?.leave,journey?.rejected?.map(r=>r.tripId)])).digest('hex').slice(0,16);}
 export function queueCommuteReminders(state,now,clock,pushEnabled) {
   const j=state.briefing?.journey,ride=state.rides.find(r=>r.date===clock.date);
-  if(!j||!ride||j.day!==clock.date||!state.settings.enabled||ride.arrived||ride.boarded||!state.commute.days.includes(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(clock.weekday))||clock.minute<state.settings.wakeStart||clock.minute>=state.settings.wakeEnd)return;
+  if(!j||!ride||ride.skipped||j.day!==clock.date||!state.settings.enabled||ride.arrived||ride.boarded||!state.commute.days.includes(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(clock.weekday))||clock.minute<state.settings.wakeStart||clock.minute>=state.settings.wakeEnd)return;
   const p=j.plan,at=+now;
   const enqueue=(kind,text,suffix='')=>{
     const id=`${clock.date}:commute:${kind}${suffix}`;
@@ -22,7 +22,7 @@ export function queueCommuteReminders(state,now,clock,pushEnabled) {
 }
 export function validCommuteNotice(event,state,ride,date,now) {
   const j=state.briefing?.journey;
-  if(!j||j.day!==date||event.planKey!==planKey(j)||ride?.arrived||ride?.boarded||+now-Date.parse(event.at)>10*60000)return false;
+  if(!j||ride?.skipped||j.day!==date||event.planKey!==planKey(j)||ride?.arrived||ride?.boarded||+now-Date.parse(event.at)>10*60000)return false;
   if(event.noticeKind==='prepare')return !ride?.started&&!ride?.acknowledged;
   if(event.noticeKind==='leave')return !!ride?.started&&!ride?.left;
   return event.noticeKind==='change';
