@@ -1,5 +1,9 @@
+// @ts-expect-error JavaScript reminder policy.
+import { queueCommuteReminders } from './commute-reminders.mjs';
+// @ts-expect-error Observation archive is a JavaScript module.
+import { recordEvidence } from './observations.mjs';
 import { deliverPendingPush, notificationStatus, publishNotification, NotificationError } from './notifications.ts';
-import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomUUID, timingSafeEqual, randomBytes, createHash } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { defaults, history, learn, plan, time, type Profile } from '../src/planner.ts';
 import { accountStore, type AccountStore } from './store.ts';
@@ -7,10 +11,14 @@ import { integrationStatus, interpretCorrection, researchRoute, IntegrationError
 import type { AccountState, AgentSettings, Briefing, Ride, ServerPlan } from '../src/agent-types.ts';
 // @ts-expect-error Existing JavaScript transit adapter.
 import { getTransitSnapshot } from './transit.mjs';
+// @ts-expect-error JavaScript schedule adapter.
+import { getCatalog } from './gtfs.mjs';
+// @ts-expect-error JavaScript journey planner.
+import { planJourney, validateJourney } from './journey.mjs';
 
 const json = (res: ServerResponse, code: number, body: unknown) => {
   res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' });
-  res.end(JSON.stringify(body));
+  res.end(JSON.stringify(body, (key, value) => key === 'sessions' ? undefined : value));
 };
 class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
 export function localClock(now: Date, timezone: string) {
@@ -46,6 +54,18 @@ function event(state: AccountState, now: Date, kind: 'decision' | 'push' | 'call
 // Numeric trip selection and wording share the same result; no model-generated numbers.
 export function computeBriefing(state: AccountState, snapshot: any, now: Date): Briefing {
   const { profile, settings } = state;
+  if (state.commute) {
+    const journey = snapshot?.journey || { status: 'unavailable', day: localClock(now, settings.timezone).date, plan: null, departures: [], reason: 'Schedule unavailable. Please try again.' };
+    const p = journey.plan;
+    const format = (at: number) => new Intl.DateTimeFormat('en-US', { timeZone: settings.timezone, hour: 'numeric', minute: '2-digit' }).format(new Date(at));
+    const clock = localClock(now, settings.timezone);
+    const ride = state.rides.find(r => r.date === clock.date);
+    const alerts = [...(journey.warnings||[]),...(journey.notices||[]).map((a:any)=>a.header)];
+    let speech = p ? `For ${journey.day}, start getting ready at ${format(p.start)}. Leave at ${format(p.leave)} for the ${format(p.expected)} ${state.commute.code} toward ${state.commute.headsign}. Estimated arrival at ${profile.destination}: ${format(p.arrive)}. ${journey.reason}` : journey.reason;
+    if (ride?.left) speech = ride.arrived ? 'Arrival saved. Your morning is complete.' : 'You are on your way. Check in when you arrive.';
+    return { speech, plan: p ? { start: localClock(new Date(p.start),settings.timezone).minute, leave: localClock(new Date(p.leave),settings.timezone).minute, trip: localClock(new Date(p.departure),settings.timezone).minute, arrive: localClock(new Date(p.arrive),settings.timezone).minute, buffer:state.commute.buffer,odds:0 } : null,
+      source: p?.source || 'unavailable', checkedAt: now.toISOString(),sourceAt:p?.observedAt?new Date(p.observedAt).toISOString():null,reason:journey.reason,alerts,journey };
+  }
   const clock = localClock(now, settings.timezone);
   const ride = state.rides.find(r => r.date === clock.date);
   const remaining = ride?.started ? Math.max(0, profile.ready - (now.getTime() - Date.parse(ride.started)) / 60000) : profile.ready;
@@ -66,23 +86,25 @@ export function computeBriefing(state: AccountState, snapshot: any, now: Date): 
   }) : [];
   // A matched, fresh feed with no feasible trip must not turn into a fictional fallback trip.
   const live = Boolean(fresh && matching.some((a: any) => Number.isFinite(Date.parse(a.aimed)) && Number.isFinite(Date.parse(a.expected)) && localClock(new Date(a.expected), settings.timezone).date === clock.date));
-  const chosen = live ? candidates.sort((a, b) => b.trip - a.trip)[0] ?? null : plan({ ...profile, ready: Math.ceil(remaining) }, 0, clock.minute);
+  const chosen = live ? candidates.sort((a, b) => b.trip - a.trip)[0] ?? null : null;
   const result = chosen ? { ...chosen, start: chosen.leave - profile.ready } : null;
-  const reason = live ? 'Matched 511 line and destination. Ride duration is your estimate; risk uses 14 seeded delays.' : !settings.headsign ? 'Set an exact 511 destination to match your direction. Sample timetable in use.' : 'Fresh matching 511 predictions unavailable. Sample timetable in use.';
+  const reason = live ? 'Matched 511 line and destination. Ride duration is your estimate; risk uses 14 seeded delays.' : !settings.headsign ? 'Complete My commute to select your direction and destination stop.' : 'Fresh matching predictions unavailable. Complete My commute to enable scheduled planning.';
   const alertsFeed = snapshot?.alerts;
   const alerts = !alertsFeed?.error && !alertsFeed?.stale ? (alertsFeed?.items ?? []).filter((a: any) => !a.routes?.length || a.routes.includes(settings.line)).map((a: any) => String(a.header)).slice(0, 5) : ['Service alerts could not be confirmed.'];
   let speech = result ? `To reach ${profile.destination} by ${time(profile.arriveBy)}, ${ride?.started ? 'you have started getting ready' : `start getting ready at ${time(result.start)}`}. Leave at ${time(result.leave)} for the ${time(result.trip)} ${settings.line}. Estimated arrival ${time(result.arrive)}. This fits ${result.odds}% of 14 seeded rides, with low confidence.` : 'No feasible trip was found within the available departures. Check another route or change your deadline.';
-  if (!live) speech = `Sample plan, not a live travel recommendation. ${speech}`;
+  if (!live) speech = reason;
   else speech += ' Ride duration is your estimate.';
   if (ride?.left) speech = ride.arrived ? 'Arrival saved. Your morning is complete.' : 'You are on your way. Check in when you arrive.';
   if (!ride?.arrived) speech += alerts.length ? ` ${alerts.join(' ')}` : ' No relevant alerts were returned.';
-  return { speech, plan: ride?.left ? null : result, source: live ? 'live' : 'sample', checkedAt: now.toISOString(), sourceAt: fresh ? new Date(feed.fetchedAt).toISOString() : null, reason, alerts };
+  return { speech, plan: ride?.left ? null : result, source: live ? 'live' : 'unavailable', checkedAt: now.toISOString(), sourceAt: fresh ? new Date(feed.fetchedAt).toISOString() : null, reason, alerts };
 }
 
 export function escalation(state: AccountState, now: Date, pushEnabled = notificationStatus().configured) {
   const clock = localClock(now, state.settings.timezone);
   const ride = currentRide(state, now);
-  if (!state.settings.enabled || ['Sat', 'Sun'].includes(clock.weekday) || clock.minute < state.settings.wakeStart || clock.minute >= state.settings.wakeEnd || ride.acknowledged || ride.started || !state.briefing) return;
+  if(state.commute){queueCommuteReminders(state,now,clock,pushEnabled);return;}
+  if (!state.settings.enabled || ![1,2,3,4,5].includes(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(clock.weekday)) || clock.minute < state.settings.wakeStart || clock.minute >= state.settings.wakeEnd || ride.acknowledged || ride.started || !state.briefing) return;
+  if (state.briefing.journey && state.briefing.journey.day !== clock.date) return;
   const due = Math.max(state.settings.wakeStart, ride.alertDue ?? state.briefing.plan?.start ?? state.settings.wakeStart);
   if (clock.minute < due) return;
   const pushId = `${clock.date}:push`;
@@ -114,7 +136,7 @@ async function body(req: IncomingMessage) {
   try { return JSON.parse(text); } catch { throw new ApiError(400, 'Invalid JSON.'); }
 }
 
-export function createAgentService({ file, token, snapshot = getTransitSnapshot, now = () => new Date(), store = accountStore(file), interpret = interpretCorrection, publish = publishNotification, pushEnabled = () => notificationStatus().configured }: { file: string; token: () => string | undefined; snapshot?: (stop: string) => Promise<any>; now?: () => Date; store?: AccountStore; interpret?: typeof interpretCorrection; publish?: typeof publishNotification; pushEnabled?: () => boolean }) {
+export function createAgentService({ file, token, snapshot = getTransitSnapshot, now = () => new Date(), store = accountStore(file), interpret = interpretCorrection, publish = publishNotification, pushEnabled = () => notificationStatus().configured, catalog = getCatalog }: { file: string; token: () => string | undefined; snapshot?: (stop: string, options?: any) => Promise<any>; now?: () => Date; store?: AccountStore; interpret?: typeof interpretCorrection; publish?: typeof publishNotification; pushEnabled?: () => boolean; catalog?: () => Promise<any> }) {
   let queue: Promise<unknown> = Promise.resolve();
   const transact = <T,>(fn: (state: AccountState) => Promise<T> | T, write = true): Promise<T> => {
     const work = queue.then(async () => {
@@ -136,7 +158,12 @@ export function createAgentService({ file, token, snapshot = getTransitSnapshot,
     const date = now(); const ride = currentRide(state, date);
     const previous = state.briefing;
     let data;
-    try { data = await snapshot(state.profile.stopCode); } catch { data = null; }
+    try { data = await snapshot(state.profile.stopCode,{commute:state.commute}); } catch { data = null; }
+    if (state.commute) {
+      try { const timetable = await catalog(); data = { ...data, journey: planJourney(timetable, state.commute, state.profile, data, date, ride, previous?.journey) };
+        if(snapshot===getTransitSnapshot){try{await recordEvidence(timetable,state.commute,data,data.journey,date);}catch{data.journey.warnings=[...(data.journey.warnings||[]),'Observation recording is unavailable; learning is paused.'];}} }
+      catch { data = { ...data, journey: {status:'unavailable', day:localClock(date,state.settings.timezone).date, plan:null,departures:[],reason:'Schedule unavailable. Your saved commute is safe; try again later.'} }; }
+    }
     state.briefing = computeBriefing(state, data, date);
     if (state.briefing.plan) ride.alertDue = Math.min(ride.alertDue ?? Infinity, state.briefing.plan.start);
     const before = previous?.plan, after = state.briefing.plan;
@@ -146,11 +173,17 @@ export function createAgentService({ file, token, snapshot = getTransitSnapshot,
     escalation(state, date, pushEnabled());
     return state;
   };
-  const tick = () => transact(async state => {
+  const tick = async () => {
+    const saved = await transact(s=>s,false);
+    const clock=localClock(now(),saved.settings.timezone);
+    const collect=saved.commute&&saved.commute.days.includes(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(clock.weekday))&&clock.minute>=Math.max(0,saved.profile.arriveBy-saved.profile.ready-180)&&clock.minute<saved.profile.arriveBy;
+    if(!saved.settings.enabled&&!collect)return;
+    return transact(async state => {
     const clock = localClock(now(), state.settings.timezone);
-    if (!state.settings.enabled || ['Sat', 'Sun'].includes(clock.weekday) || clock.minute < Math.max(0, state.settings.wakeStart - 10) || clock.minute >= state.settings.wakeEnd) return;
+    if (!collect && (!state.settings.enabled || !(state.commute?.days ?? [1,2,3,4,5]).includes(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(clock.weekday)) || clock.minute < Math.max(0, state.settings.wakeStart - 10) || clock.minute >= state.settings.wakeEnd)) return;
     await check(state);
   });
+  };
   const handler = (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url!, 'http://localhost');
     if (!url.pathname.startsWith('/api/agent/') && url.pathname !== '/briefing/now') return false;
@@ -159,7 +192,29 @@ export function createAgentService({ file, token, snapshot = getTransitSnapshot,
       if (!secret || secret.length < 32) throw new ApiError(503, 'Run npm run account on the server to set up your personal account, then restart it.');
       const supplied = req.headers.authorization?.replace(/^Bearer /, '') ?? '';
       const a = Buffer.from(secret), b = Buffer.from(supplied);
-      if (a.length !== b.length || !timingSafeEqual(a, b)) throw new ApiError(401, 'Enter your server account key.');
+      const bearer = a.length === b.length && timingSafeEqual(a,b);
+      const cookie = /(?:^|;\s*)fogline_session=([a-f0-9]{64})(?:;|$)/.exec(req.headers.cookie || '')?.[1];
+      const hash = (value: string) => createHash('sha256').update(secret + value).digest('hex');
+      const account = !bearer && cookie ? await transact(s=>s,false) : null;
+      const session = Boolean(cookie && account?.sessions?.some(s=>s.hash===hash(cookie)&&s.expires>Date.now()));
+      if (!bearer && !session) throw new ApiError(401, 'Connect this device with your personal account key.');
+      if (req.method !== 'GET' && req.headers.origin) {
+        let origin: URL; try { origin = new URL(req.headers.origin); } catch { throw new ApiError(403,'Invalid request origin.'); }
+        if (origin.host !== req.headers.host) throw new ApiError(403,'Open Fogline on the same server to save changes.');
+      }
+      if (req.method !== 'GET' && session && !req.headers.origin && req.headers['x-fogline-client'] !== '1') throw new ApiError(403,'Missing request origin.');
+      const secure = !/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(req.headers.host || '') ? '; Secure' : '';
+      if (req.method === 'POST' && url.pathname === '/api/agent/session') {
+        if (!bearer) throw new ApiError(401,'Use the account key to pair a new device.');
+        const sessionToken = randomBytes(32).toString('hex');
+        await transact(s=>{s.sessions=(s.sessions||[]).filter(x=>x.expires>Date.now()).slice(-19);s.sessions.push({hash:hash(sessionToken),expires:Date.now()+30*86400000});});
+        res.setHeader('Set-Cookie', `fogline_session=${sessionToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000${secure}`);
+        json(res,200,{connected:true});return;
+      }
+      if (req.method === 'POST' && url.pathname === '/api/agent/logout') {
+        if(cookie)await transact(s=>{s.sessions=(s.sessions||[]).filter(x=>x.hash!==hash(cookie));});
+        res.setHeader('Set-Cookie',`fogline_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure}`);json(res,200,{connected:false});return;
+      }
       if (req.method === 'GET' && url.pathname === '/api/agent/integrations') { json(res, 200, integrationStatus()); return; }
       if (req.method === 'GET' && url.pathname === '/api/agent/state') { json(res, 200, await transact(s => s, false)); return; }
       if (req.method === 'GET' && url.pathname === '/briefing/now') { json(res, 200, (await transact(check)).briefing); return; }
@@ -178,6 +233,10 @@ export function createAgentService({ file, token, snapshot = getTransitSnapshot,
         if (typeof input.text !== 'string' || !input.text.trim() || input.text.length > 1000) throw new ApiError(400, 'Enter a request of up to 1000 characters.');
         return interpret(input.text);
       })() : null;
+      let selectedJourney: any;
+      if (url.pathname === '/api/agent/commute') {
+        try { selectedJourney = validateJourney(input.commute, await catalog()); } catch (e) { throw new ApiError(400,(e as Error).message); }
+      }
       const result = await transact(async state => {
         if (correction) {
           if (correction.kind === 'clarify') throw new ApiError(422, 'Try an explicit total, such as “I need 45 minutes to get ready tomorrow,” or ask to read the current plan. Other changes belong in Setup.');
@@ -191,12 +250,30 @@ export function createAgentService({ file, token, snapshot = getTransitSnapshot,
           return check(state);
         }
         if (url.pathname === '/api/agent/check') return check(state);
+        if (url.pathname === '/api/agent/commute') {
+          if (input.configRevision!=null?input.configRevision!==(state.configRevision??0):input.revision!==state.revision) throw new ApiError(409,'Your commute changed on another device. Refresh and review before saving.');
+          const profile = validateProfile({...input.profile,stopCode:selectedJourney.stopId});
+          const days = input.commute.days;
+          if (!Array.isArray(days)||!days.length||days.some((d:any)=>!Number.isInteger(d)||d<0||d>6)||!Number.isInteger(input.commute.buffer)||input.commute.buffer<0||input.commute.buffer>60) throw new ApiError(400,'Choose travel days and a buffer between 0 and 60 minutes.');
+          const ride=currentRide(state,now());
+          if(ride.started&&!ride.arrived)throw new ApiError(409,'Finish the current journey before changing your commute.');
+          const boardingMargin=input.commute.boardingMargin??3;
+          if(!Number.isInteger(boardingMargin)||boardingMargin<0||boardingMargin>20)throw new ApiError(400,'Boarding margin must be between 0 and 20 minutes.');
+          state.configRevision=(state.configRevision??0)+1;
+          state.commute={...selectedJourney,days:[...new Set(days)] as number[],buffer:input.commute.buffer,boardingMargin};
+          state.profile=profile;state.settings={...state.settings,line:selectedJourney.line,headsign:selectedJourney.headsign,timezone:'America/Los_Angeles'};
+          state.learningAppliedThrough=state.rides.find(r=>r.nextReady!==null)?.date??null;
+          delete state.readyOverride;delete ride.alertDue;
+          event(state,now(),'decision','Commute saved.');return check(state);
+        }
         if (url.pathname === '/api/agent/settings') {
-          if (input.revision !== state.revision) throw new ApiError(409, 'Another device changed your account. Refresh and try again.');
+          if (input.configRevision!=null?input.configRevision!==(state.configRevision??0):input.revision!==state.revision) throw new ApiError(409, 'Another device changed your account. Refresh and try again.');
           const profile = validateProfile(input.profile), settings = validateSettings(input.settings);
+          if(state.commute && (profile.stopCode!==state.commute.stopId || settings.line!==state.commute.line || settings.headsign!==state.commute.headsign)) throw new ApiError(409,'Change your route in My commute.');
           const ride = currentRide(state, now());
           if (ride.started && !ride.arrived) throw new ApiError(409, 'Finish today’s check-in before changing preferences.');
           if (settings.timezone !== state.settings.timezone && state.rides.some(r => r.started)) throw new ApiError(409, 'Timezone cannot change after your first check-in.');
+          state.configRevision=(state.configRevision??0)+1;
           state.profile = profile; state.settings = settings; delete state.readyOverride;
           // An explicit preparation preference supersedes earlier learning.
           state.learningAppliedThrough = state.rides.find(r => r.nextReady !== null)?.date ?? null;
@@ -214,6 +291,7 @@ export function createAgentService({ file, token, snapshot = getTransitSnapshot,
               if (measured < 5 || measured > 180) throw new ApiError(400, 'Preparation must take between 5 and 180 minutes.');
               ride.measured = Math.round(measured); ride.nextReady = learn(state.profile.ready, measured); ride.left = at;
             }
+          } else if(input.action==='board'){if(!ride.left)throw new ApiError(409,'Record leaving first.');if(!ride.boarded)ride.boarded=at;
           } else if (input.action === 'arrive') { if (!ride.left) throw new ApiError(409, 'Record leaving first.'); if (!ride.arrived) ride.arrived = at; }
           else throw new ApiError(400, 'Unknown check-in action.');
           event(state, date, 'decision', `Check-in: ${input.action}.`, `${ride.date}:checkin:${input.action}`);

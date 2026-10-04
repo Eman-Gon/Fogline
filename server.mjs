@@ -15,8 +15,8 @@ try {
   }
 } catch {}
 
-const agent = createAgentService({ file: join(root, 'data', 'account.json'), token: () => process.env.FOGLINE_ACCOUNT_TOKEN });
+const agent = createAgentService({ file: process.env.FOGLINE_ACCOUNT_FILE || join(root, 'data', 'account.json'), token: () => process.env.FOGLINE_ACCOUNT_TOKEN });
 agent.start();
 const server = createServer(createRequestHandler({ dist: join(root, 'dist'), agentHandler: agent.handler, transitHandler }));
 const port = Number(process.env.PORT || 4173);
-server.listen(port, '0.0.0.0', () => console.log(`Fogline listening on http://localhost:${port}`));
+server.listen(port, process.env.FOGLINE_HOST || '0.0.0.0', () => console.log(`Fogline listening on http://localhost:${port}`));

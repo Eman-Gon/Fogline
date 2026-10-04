@@ -1,105 +1,74 @@
 # Fogline
 
-Fogline works backward from a destination deadline, checks Muni predictions, and learns how long you take to get ready.
+Fogline works backward from your arrival deadline using a saved Muni journey, real schedules, and confirmed live predictions when available.
 
 ## Run locally
 
 ```sh
 corepack pnpm install --frozen-lockfile --ignore-scripts
-npm run account
-npm run dev
+pnpm account
+pnpm dev
 ```
 
-Use Node.js 22 or newer. The install command uses the existing pnpm lockfile without requiring a global `pnpm` command. If Corepack is unavailable, use `npm install --ignore-scripts --no-package-lock` instead; that fallback resolves dependencies from `package.json`.
+Use Node.js 22 or newer. `pnpm account` creates or shows your private account key. Set `SF511_API_KEY` in `.env`, restart the server, and open http://localhost:5173. Connect your device with the key, then choose **Set up my commute**. The key is not stored in browser storage; an HttpOnly session keeps the device connected for 30 days.
 
-`npm run account` creates a private account key in `.env` and prints it for pairing your devices. Keep it private. Open http://localhost:5173, choose **Server morning**, and enter that key. Restart the server after creating or changing the key. Re-running `npm run account` shows the existing key. The original Today demo works without an account.
+For a production build, run `pnpm build` then `pnpm start` (port 4173). Use HTTPS for remote access. Keep the server awake for background checks. Run one server process per account. Never serve the repository root, which contains private configuration and account data.
 
-For a production build:
+## Set up once
 
-```sh
-npm run build
-npm start
-```
+1. Choose a numbered or letter-led line. Numbers sort naturally before letters. Services lacking a verified schedule are shown but cannot be selected.
+2. Choose a direction and destination variant, then your boarding and alighting stops. Every stop is listed in travel order, with search by name or ID. Stops without map coordinates remain selectable.
+3. Set your destination name, deadline, travel days, preparation time, walking estimates, and arrival buffer. Save to see Today’s plan.
 
-The built app runs on port 4173. Run only one Fogline server against the account file at a time. Keep the server awake for background checks. The phone must use the same server address; use HTTPS when exposing it through a tunnel. Never serve the repository root, which contains `.env` and private account data.
+**Today** shows the next scheduled commute, preparation and departure times, trip endpoints, source labels, and check-ins. Maps, the complete stop list, upcoming departures, and spoken briefing are expandable. **My commute** edits the same saved journey and contains reminder settings. **History** shows real check-ins and preparation learning.
 
-## What works
+Earlier server preferences and ride history remain intact. Earlier browser morning preferences can be reviewed and copied during setup; demo check-ins are not imported as real trips. Direction and both stops must be selected explicitly.
 
-- Original interactive demo: backward planning, simulated 12-minute delay, manual clock, and preparation learning in browser storage.
-- Guided Muni line and stop selection, a stop map, and cached vehicle positions. Server direction/headsign and morning preferences still need to be configured separately.
-- Cached 511 arrivals, scheduled departures, and service alerts. Set `SF511_API_KEY` in `.env`.
-- A personal server account, accessed with the same key from multiple devices. Profile, actual check-ins, learned preparation time, rides, and decisions persist in Neon when `DATABASE_URL` is set, or `data/account.json` otherwise.
-- A deterministic agent loop: checks once a minute during the configured weekday window, beginning 10 minutes before it. Shares the 10-minute transit cache, combines simultaneous requests, and backs off for 10 minutes after feed failures.
-- Plans from fresh predictions matching both the exact line and destination. Uses your estimated ride duration and clearly labeled seeded residual delays. Missing data produces a labeled sample fallback; a fresh matching feed with no feasible trip reports no fit.
-- Authenticated `/briefing/now` returns the same structured plan and spoken wording used in the dashboard.
-- ntfy push delivery when configured; otherwise push previews. Phone calls remain dry-run events. Push when preparation is due (or immediately for no feasible plan), first call five minutes after the queued push, second call at least five minutes after the first. Maximum two calls per local day, inside the wake window. Acknowledgement or starting preparation stops escalation.
+## Transit data
 
-## Connect a real morning
+The server imports the official SF GTFS archive through 511, including calendars, exceptions, ordered stop calls, route variants, shapes, and after-midnight trips. It caches the archive at `data/transit/sf.zip` and checks for an update daily. Downloads are parsed in a worker and validated before replacing the last good archive. Planning refuses dates beyond the feed's validity and asks for review when a saved pattern changes.
 
-1. Use **Let’s get started** to choose Muni lines and your boarding stop. In Setup, enter your destination, deadline, preparation time, and estimated travel times; review the selected numeric stop code.
-2. Connect in **Server morning**, expand **Server preferences & alarm briefing**, and select **Copy this device’s Setup preferences to the server**.
-3. Enter the exact line and destination shown by the 511 arrivals panel to choose the direction. Set your timezone and weekday wake window. Save.
-4. Select **Check data & revise plan**. Review its source label, feed age, and decision log.
-5. Enable automatic checks to exercise escalation. A configured ntfy topic enables real pushes; otherwise pushes are previews. Calls remain previews. Times use the configured timezone, including daylight saving changes. Wake windows cannot cross midnight.
-6. Use the server check-in buttons with the real clock. Valid preparation measurements are 5–180 minutes; next day's estimate blends 75% previous estimate with 25% measured time.
-7. Open the same server URL on your phone and enter the same key. Account data refreshes every 30 seconds and on focus. The key stays in page memory, so reload requires reconnecting. Demo taps remain separate.
+Today uses scheduled boarding and alighting times for the saved journey, including compatible direct variants with unambiguous stop order. A live prediction is used only with an exact route and trip match and a compatible direction. The map shows a bus only when its trip/date and vehicle identity match the prediction and the position is fresh. Known cancellations, skipped stops, passed boarding stops, and applicable service suspensions or stop changes invalidate the candidate. Missing or stale live data uses a labeled scheduled estimate; missing schedules report unavailability. There is no fictional timetable, demo clock, or seeded on-time percentage in Today.
 
-## Push notifications
+The October 4 reconciliation found 68 scheduled routes and 287 patterns in the imported feed. Route 15 exactly matches the supplied 27 inbound and 28 outbound stop IDs in order. Six directory services (78X, KLM Bus, L Bus, M Bus, S, SF) lack verified schedules in this archive and appear as unavailable references. These require further schedule reconciliation before they can support planning. Event-only references do not imply that an event runs today.
 
-Set `NTFY_TOPIC` and optionally `NTFY_SERVER` (defaults to `https://ntfy.sh`) and `NTFY_TOKEN` in `.env`, then restart. Use a long random topic or a protected topic. Subscribe to that server/topic in the ntfy phone app, allow notifications, then use the test control in **Server morning**. A provider acknowledgement is not proof that the phone displayed or sounded the alert. Verify it on the phone before relying on it.
+Commute trip updates and positions use three-minute caches; alerts use a ten-minute cache. All 511 requests, including the static archive, share a persisted rolling-hour budget of 55 calls. Source observation timestamps determine whether evidence is fresh. Concurrent requests are coalesced. The budget survives restart; public transit endpoints share it. A filesystem lock prevents concurrent budget writes. An abandoned budget lock fails closed and requires an operator to verify no writer is running before removing that lock; never delete the ledger to bypass limits. Destination arrival is an estimate even when boarding has a live prediction. Walking times are user estimates; there is no transfer planning.
 
-Automatic pushes require enabled weekday checks and the configured wake window. Delivery is persisted before sending to prevent automatic replay of an uncertain send after a restart; failures require checking the phone and delivery log. This review did not send notifications or test an iPhone.
+## Account and reminders
 
-For a hosted, always-on deployment for another person, see [DEPLOY.md](DEPLOY.md).
+The single personal account persists in `data/account.json`, or in Neon when `DATABASE_URL` is configured. Cloud storage uses revision checks; failures do not silently switch to local storage. Back up your account data. `FOGLINE_ACCOUNT_FILE` can isolate a local test account when `DATABASE_URL` is unset. `FOGLINE_HOST` and `PORT` can bind an isolated preview to loopback and another port.
 
-## Alarm Shortcut integration
+Device sessions are hashed on the server. Disconnecting revokes that device's session while preserving commute and history. Rotate `FOGLINE_ACCOUNT_TOKEN` and restart to revoke device access. Never place the account key in a URL.
 
-The server endpoint is ready; create the automation on your iPhone:
+Automatic checks follow saved travel days and the configured same-day wake window. Set `NTFY_TOPIC`, optional `NTFY_SERVER` (HTTPS, defaults to ntfy.sh), and optional `NTFY_TOKEN`, then restart to enable push delivery. Use a private random or protected topic and subscribe on your phone. Delivery attempts are persisted before sending to avoid replay after restart. Phone receipt remains unverified. Calls are dry-run events, not delivered calls. There is no service worker or automatic iPhone alarm installation.
 
-- Alarm stopped → Get Contents of URL: `https://YOUR_SERVER/briefing/now`
-- HTTP method: GET. Header: `Authorization: Bearer YOUR_ACCOUNT_KEY`
-- Get Dictionary Value: `speech` → Speak Text.
-- Add a failure branch that tells you to check Fogline if the server is unreachable.
+An iPhone Shortcut can GET `/briefing/now` with `Authorization: Bearer YOUR_ACCOUNT_KEY` and speak the returned `speech`. Add a failure branch. Starting preparation in Today stops reminder escalation; retrieving a briefing alone does not acknowledge waking.
 
-Use the supported action names on your phone. Retrieving a briefing does not acknowledge waking up. Tap **I’m awake** in Server morning to stop escalation. iPhone setup and alarm behavior have not been tested on a device.
-
-## Current limits
-
-The scheduled loop remains deterministic. On-demand corrections use Mastra Gateway tool calls, and on-demand route research uses Exa. This is a Gateway integration, not the Mastra agent framework. Risk still uses 14 seeded delays, and the configured ride duration is an estimate; recorded rides do not yet recalibrate transit risk. The prediction horizon can be too short to plan a full morning. Alerts are included as text, without assumed numeric delay penalties.
-
-ntfy push delivery is implemented but phone receipt is unverified. Without a valid ntfy topic, pushes remain previews. Calls are **dry runs only**; Twilio delivery and call keypress webhooks are not connected. There is no service worker or automatic iOS alarm installation. Running the app on your laptop requires it to stay awake and online.
-
-The server account is a single personal account with a bearer key, not a multi-user login service. Storage defaults to a local JSON file with atomic replacement and an in-process write queue. Set DATABASE_URL to switch to Neon Postgres; an existing local account is copied only if the cloud account is absent. The database uses a revision check to reject competing writes. A database failure is reported rather than silently switching storage. Ride history retains 365 local days and the latest 500 events. Back up `data/account.json`; use one server process. Rotate `FOGLINE_ACCOUNT_TOKEN` in `.env` and restart to revoke device access without deleting rides. Do not put the key in a URL.
-
-The transit endpoints are public to support setup before account pairing. All feeds share a per-process limit of 128 cached resources, eight concurrent upstream loads, and 60 upstream loads per rolling ten minutes, including failed loads. Invalid stop/line inputs return 400. Budget exhaustion returns per-feed errors and stale data when available. These bounds protect memory and cap quota use, but a public client can still consume that shared budget and delay fresh data for the account. They reset on restart; use one server process.
-
-## What to expect with live data (important)
-
-- The 511 prediction window covers only the next few trips (about 30 minutes at the observed stop). If you start getting ready earlier than that, there is often no live prediction for your trip, so the plan becomes a labeled **sample plan** built from a fictional timetable. Do not rely on it for a real commute.
-- The on-time percentage is computed from 14 seeded delays, not your line's history. It is a placeholder.
-- Only the push is delivered. Phone calls are log entries.
-
-## Demo replay
-
-On Today: **Simulate 12 min delay** → **Jump to start** → **I’m starting now** → **43 min after start** → **I’m out the door** → **Jump to arrival** → **I’ve arrived** → **Try tomorrow’s plan**. The 35-minute preparation estimate becomes 37. This replay uses sample data and browser-local storage.
+Existing constrained Mastra correction and Exa research endpoints remain on the server; the simplified interface does not surface them. See [DEPLOY.md](DEPLOY.md) for hosting guidance, noting that older screen names there may refer to the previous interface.
 
 ## Validation
 
 ```sh
-npm test
-npm run build
+pnpm test
+pnpm build
 ```
 
-Tests cover planning, direction matching, changed predictions, stale feeds, preparation progress, escalation limits and acknowledgement, authorization, persistence after restart, conflicting device edits, idempotent check-ins, and next-day learning. Tests also cover malformed HTTP URLs, static path containment, transit input validation, bounded caching, request deduplication, upstream budgets, and failure backoff. No real phone push or call delivery was tested in this review.
+Tests cover route sorting, CSV import, missing map coordinates, ordered boarding/alighting, service dates and exceptions, daylight saving and after-midnight trips, non-T planning, prediction identity, expired feeds, session persistence, atomic commute saves, preserved history, authorization, learning, notification safeguards, and shared cache budgets. Browser testing uses a separate local account with notifications disabled.
 
+## Reliability pipeline
 
-## Sponsor API connections
+A separate **early boarding margin** defaults to three minutes and can be edited in My commute. It is a precaution, not a statistical arrival range. Today shows the be-at-stop target, verified stops remaining when available, source age, an earlier feasible option, and an explanation. Predictions do not silently push an existing departure recommendation later. Destination predictions are used separately when supplied.
 
-- **Mastra Gateway:** `MASTRA_GATEWAY_API_KEY` enables the server-side correction endpoint. In Server morning, enter an explicit total such as “I need 45 minutes to get ready tomorrow.” The model selects a constrained tool; the server validates it, saves a next-day override, and keeps today's estimate unchanged. The model does not calculate travel times or probabilities. Unsupported requests ask for clarification. `MASTRA_MODEL` optionally overrides the default `google/gemini-2.5-flash`. An HTTP 402 requires checking Gateway credits; it leaves account preferences unchanged.
-- **Exa:** `EXA_API_KEY` enables **Search recent route reports**. Search is on demand, cached for 10 minutes, limited to five results from the past two days, and labeled unconfirmed. Public line/direction are sent to Exa; home addresses and ride history are not. Search findings do not change numeric risk estimates. Empty results do not mean all clear.
-- **Neon:** add the project's connection string as `DATABASE_URL` in `.env`, then restart. The driver creates `fogline_accounts` and stores the account as a JSONB document with a revision and update timestamp. It preserves profiles, check-ins, rides, pending next-day corrections, and decision history. The supplied October 4 audit reports a successful read of the configured Neon account (revision 16). This hardening pass used temporary local fixtures and did not repeat that live database check. Do not start multiple background scheduler processes against one account.
-- **511:** live service alerts and arrivals both succeed. Stop `17166`, 4th St & King St, returns line `T` toward `Chinatown - Rose Pak Station` with aimed and expected times. Enter that stop, line, and destination exactly; the planner matches the destination string as 511 sends it.
+Official SFMTA travel advisories are checked every six hours from the latest ten listed notices, matched to route and available date information. They are contextual links, not a complete closure inventory. Exact closure hours and alternate-stop instructions must be reviewed in the source. Event proximity never adds arbitrary delay minutes. Structured real-time alerts remain the planner's scoped disruption input.
 
-All credentials stay server-side. MCP is not required. `/api/agent/integrations` is authenticated and reports configuration and provider health without returning keys. Model requests and web searches happen only when you submit their respective controls; the minute-by-minute loop does not spend model/search credits.
+During saved travel days, the running server checks from preparation time plus three hours before the arrival deadline until that deadline, independently of whether push reminders are enabled. An open app also refreshes its plan. Normalized observations and forecast snapshots are deduplicated in `data/observations/YYYY-MM-DD.jsonl`; the generated archive retains 30 days and caps each day at 2,000 records. `FOGLINE_OBSERVATIONS_DIR` isolates preview/test archives. Personal account keys and user GPS are not recorded. Keep the server running to collect evidence; there is no data collection while it is off.
 
-Local setup created the personal account key. Retrieve it privately with `npm run account` and enter it in Server morning. Emails and phone calls are not delivered. Configured ntfy pushes can be delivered.
+```sh
+pnpm reliability:report
+```
+
+The report derives **inferred passage intervals**, scores forecasts against those intervals, and evaluates a historical residual candidate using earlier service dates for training and later dates for testing. It reports insufficient samples explicitly and **never enables the model automatically**. Passage does not prove boarding, and interval-distance error is not exact arrival accuracy. Long-horizon forecasts beyond 75 minutes are excluded from these evaluation buckets. Confidence ranges remain unavailable until independent validation supports promotion.
+
+Commute reminders distinguish preparation, leaving, and significant plan changes. They deduplicate, reject superseded pending notices, and stop after a boarded/completed check-in. The legacy non-commute escalation remains for compatibility. Real device delivery, cancellation coverage across all services, cadence over multiple service days, and trained-model accuracy still require validation.
+
+Implementation evidence: [feed qualification](docs/reliability-feed-qualification.json), [reliability plan](docs/fogline-reliability-plan.md).

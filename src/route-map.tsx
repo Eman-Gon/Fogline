@@ -24,10 +24,18 @@ function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch] || ch));
 }
 
-export function RouteMap({ stops, vehicles, selectedId, fitKey, onSelect }: { stops: MapStop[]; vehicles: MapVehicle[]; selectedId?: string; fitKey: string; onSelect?: (stop: MapStop) => void }) {
+function focusPoints(stops: MapStop[], here: { lat: number; lon: number } | null) {
+  if (!here) return stops.map((stop) => [stop.lat, stop.lon]);
+  const nearby = [...stops].sort((a, b) => milesBetween(here, a) - milesBetween(here, b)).slice(0, 6);
+  return [[here.lat, here.lon], ...nearby.map((stop) => [stop.lat, stop.lon])];
+}
+
+export function RouteMap({ stops, vehicles, selectedId, fitKey, onSelect, shape = [], here = null }: { stops: MapStop[]; vehicles: MapVehicle[]; shape?: number[][]; selectedId?: string; fitKey: string; onSelect?: (stop: MapStop) => void; here?: { lat: number; lon: number } | null }) {
   const node = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const groupRef = useRef<any>(null);
+  const latestStops = useRef(stops); latestStops.current = stops;
+  const latestHere = useRef(here); latestHere.current = here;
   const fitted = useRef('');
   const lastSelected = useRef('');
 
@@ -40,8 +48,15 @@ export function RouteMap({ stops, vehicles, selectedId, fitKey, onSelect }: { st
       maxZoom: 19,
     }).addTo(map);
     mapRef.current = map;
+    const observer = new ResizeObserver(() => {
+      if (!node.current?.clientHeight || !node.current?.clientWidth) return;
+      map.invalidateSize();
+      const points = focusPoints(latestStops.current, latestHere.current);
+      if (points.length > 1) map.fitBounds(points, { padding: [28, 28], maxZoom: 16 });
+    });
+    observer.observe(node.current);
     const frame = window.requestAnimationFrame(() => map.invalidateSize());
-    return () => { window.cancelAnimationFrame(frame); map.remove(); mapRef.current = null; groupRef.current = null; };
+    return () => { observer.disconnect(); window.cancelAnimationFrame(frame); map.remove(); mapRef.current = null; groupRef.current = null; };
   }, []);
 
   useEffect(() => {
@@ -51,6 +66,7 @@ export function RouteMap({ stops, vehicles, selectedId, fitKey, onSelect }: { st
     groupRef.current?.remove();
     const group = L.layerGroup().addTo(map);
     groupRef.current = group;
+    if (shape.length) L.polyline(shape, { color: '#c54a24', weight: 4, opacity: .8 }).addTo(group);
     for (const stop of stops) {
       const selected = stop.id === selectedId;
       const marker = L.circleMarker([stop.lat, stop.lon], {
@@ -63,6 +79,16 @@ export function RouteMap({ stops, vehicles, selectedId, fitKey, onSelect }: { st
       marker.bindTooltip(`${stop.line} · ${stop.name}`, { direction: 'top' });
       if (onSelect) marker.on('click', () => onSelect(stop));
       marker.addTo(group);
+    }
+    if (here) {
+      const icon = L.divIcon({
+        className: 'you-marker',
+        html: '<span>You</span>',
+        iconSize: [44, 44],
+        iconAnchor: [22, 22],
+      });
+      L.circle([here.lat, here.lon], { radius: 28, color: '#1d4e89', weight: 1, fillColor: '#1d4e89', fillOpacity: 0.15 }).addTo(group);
+      L.marker([here.lat, here.lon], { icon, zIndexOffset: 800 }).bindTooltip('You are here', { direction: 'top' }).addTo(group);
     }
     for (const vehicle of vehicles) {
       const arrow = vehicle.bearing == null ? '' : `<i style="transform:rotate(${vehicle.bearing}deg)">▲</i>`;
@@ -77,15 +103,15 @@ export function RouteMap({ stops, vehicles, selectedId, fitKey, onSelect }: { st
         .addTo(group);
     }
     map.invalidateSize();
-    if (fitted.current !== fitKey && stops.length) {
-      const bounds = stops.map((stop) => [stop.lat, stop.lon]);
-      if (bounds.length === 1) map.setView(bounds[0], 15);
-      else map.fitBounds(bounds, { padding: [28, 28], maxZoom: 15 });
+    if (fitted.current !== fitKey && (stops.length || here)) {
+      const bounds = focusPoints(stops, here);
+      if (bounds.length === 1) map.setView(bounds[0], 16);
+      else map.fitBounds(bounds, { padding: [28, 28], maxZoom: 16 });
       fitted.current = fitKey;
     }
     const selected = stops.find((stop) => stop.id === selectedId);
     if (selected && lastSelected.current !== selectedId) { map.panTo([selected.lat, selected.lon]); lastSelected.current = selectedId || ''; }
-  }, [stops, vehicles, selectedId, fitKey, onSelect]);
+  }, [stops, vehicles, selectedId, fitKey, onSelect, shape, here]);
 
   if (!window.L) return <p role="alert">The map couldn't load. You can still pick a stop from the list.</p>;
   return <div ref={node} className="route-map" role="application" aria-label="Map of your Muni stops and buses" />;

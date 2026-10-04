@@ -1,0 +1,591 @@
+{
+  "route": "15",
+  "reference": "User-supplied ordered inbound/outbound stop tables, cross-checked against SFMTA route page",
+  "sourceUrl": "https://www.sfmta.com/routes/15-bayview-hunters-point-express",
+  "reviewedAt": "2026-10-04T20:32:04.290Z",
+  "fetchedAt": 1791145862781,
+  "summary": {
+    "inboundStopCount": 27,
+    "outboundStopCount": 28,
+    "expectedUniqueStopCount": 46,
+    "actualUniqueStopCount": 46,
+    "sharedStopIds": [
+      "15768",
+      "15767",
+      "15766",
+      "18051",
+      "18052",
+      "14827",
+      "14817",
+      "15242",
+      "16606"
+    ],
+    "missingStopIds": [],
+    "extraStopIds": [],
+    "scope": "Stop-ID coverage only. Current endpoint does not supply direction or travel sequence."
+  },
+  "directions": [
+    {
+      "label": "Inbound to Downtown",
+      "stops": [
+        {
+          "sequence": 1,
+          "stopId": "15864"
+        },
+        {
+          "sequence": 2,
+          "stopId": "15874"
+        },
+        {
+          "sequence": 3,
+          "stopId": "15869"
+        },
+        {
+          "sequence": 4,
+          "stopId": "18056"
+        },
+        {
+          "sequence": 5,
+          "stopId": "18057"
+        },
+        {
+          "sequence": 6,
+          "stopId": "18058"
+        },
+        {
+          "sequence": 7,
+          "stopId": "15768"
+        },
+        {
+          "sequence": 8,
+          "stopId": "15767"
+        },
+        {
+          "sequence": 9,
+          "stopId": "15766"
+        },
+        {
+          "sequence": 10,
+          "stopId": "18051"
+        },
+        {
+          "sequence": 11,
+          "stopId": "18052"
+        },
+        {
+          "sequence": 12,
+          "stopId": "14827"
+        },
+        {
+          "sequence": 13,
+          "stopId": "14817"
+        },
+        {
+          "sequence": 14,
+          "stopId": "15242"
+        },
+        {
+          "sequence": 15,
+          "stopId": "15044"
+        },
+        {
+          "sequence": 16,
+          "stopId": "15050"
+        },
+        {
+          "sequence": 17,
+          "stopId": "18147"
+        },
+        {
+          "sequence": 18,
+          "stopId": "15046"
+        },
+        {
+          "sequence": 19,
+          "stopId": "15048"
+        },
+        {
+          "sequence": 20,
+          "stopId": "18106"
+        },
+        {
+          "sequence": 21,
+          "stopId": "17961"
+        },
+        {
+          "sequence": 22,
+          "stopId": "17377"
+        },
+        {
+          "sequence": 23,
+          "stopId": "13103"
+        },
+        {
+          "sequence": 24,
+          "stopId": "17321"
+        },
+        {
+          "sequence": 25,
+          "stopId": "13114"
+        },
+        {
+          "sequence": 26,
+          "stopId": "13136"
+        },
+        {
+          "sequence": 27,
+          "stopId": "16606"
+        }
+      ]
+    },
+    {
+      "label": "Outbound to Bayview and Hunters Point",
+      "stops": [
+        {
+          "sequence": 1,
+          "stopId": "16606"
+        },
+        {
+          "sequence": 2,
+          "stopId": "16516"
+        },
+        {
+          "sequence": 3,
+          "stopId": "13161"
+        },
+        {
+          "sequence": 4,
+          "stopId": "13160"
+        },
+        {
+          "sequence": 5,
+          "stopId": "13163"
+        },
+        {
+          "sequence": 6,
+          "stopId": "17324"
+        },
+        {
+          "sequence": 7,
+          "stopId": "13104"
+        },
+        {
+          "sequence": 8,
+          "stopId": "17378"
+        },
+        {
+          "sequence": 9,
+          "stopId": "13123"
+        },
+        {
+          "sequence": 10,
+          "stopId": "17938"
+        },
+        {
+          "sequence": 11,
+          "stopId": "15049"
+        },
+        {
+          "sequence": 12,
+          "stopId": "15047"
+        },
+        {
+          "sequence": 13,
+          "stopId": "15043"
+        },
+        {
+          "sequence": 14,
+          "stopId": "15051"
+        },
+        {
+          "sequence": 15,
+          "stopId": "15045"
+        },
+        {
+          "sequence": 16,
+          "stopId": "15768"
+        },
+        {
+          "sequence": 17,
+          "stopId": "15767"
+        },
+        {
+          "sequence": 18,
+          "stopId": "15766"
+        },
+        {
+          "sequence": 19,
+          "stopId": "18051"
+        },
+        {
+          "sequence": 20,
+          "stopId": "18052"
+        },
+        {
+          "sequence": 21,
+          "stopId": "14827"
+        },
+        {
+          "sequence": 22,
+          "stopId": "14817"
+        },
+        {
+          "sequence": 23,
+          "stopId": "15242"
+        },
+        {
+          "sequence": 24,
+          "stopId": "18053"
+        },
+        {
+          "sequence": 25,
+          "stopId": "18054"
+        },
+        {
+          "sequence": 26,
+          "stopId": "18066"
+        },
+        {
+          "sequence": 27,
+          "stopId": "15872"
+        },
+        {
+          "sequence": 28,
+          "stopId": "15863"
+        }
+      ]
+    }
+  ],
+  "appStops": [
+    {
+      "id": "13103",
+      "name": "3rd St & 20th St",
+      "lat": 37.76079,
+      "lon": -122.38846,
+      "line": "15"
+    },
+    {
+      "id": "13104",
+      "name": "3rd St & 20th St",
+      "lat": 37.760613,
+      "lon": -122.388734,
+      "line": "15"
+    },
+    {
+      "id": "13114",
+      "name": "3rd St & Brannan St",
+      "lat": 37.779285,
+      "lon": -122.393185,
+      "line": "15"
+    },
+    {
+      "id": "13123",
+      "name": "3rd St & Evans Ave",
+      "lat": 37.74244,
+      "lon": -122.38815,
+      "line": "15"
+    },
+    {
+      "id": "17324",
+      "name": "3rd St & Gene Friend Way / Chase Center",
+      "lat": 37.76871,
+      "lon": -122.389377,
+      "line": "15"
+    },
+    {
+      "id": "13136",
+      "name": "3rd St & Mission St / Moscone Center",
+      "lat": 37.786373,
+      "lon": -122.40211,
+      "line": "15"
+    },
+    {
+      "id": "17961",
+      "name": "3rd Street & Evans Ave",
+      "lat": 37.742521,
+      "lon": -122.387897,
+      "line": "15"
+    },
+    {
+      "id": "17321",
+      "name": "3rd St & Warriors Way / Chase Center",
+      "lat": 37.769049,
+      "lon": -122.389228,
+      "line": "15"
+    },
+    {
+      "id": "13161",
+      "name": "4th St & Market St",
+      "lat": 37.785411,
+      "lon": -122.405531,
+      "line": "15"
+    },
+    {
+      "id": "13160",
+      "name": "4th St & Mission St / Moscone Center",
+      "lat": 37.784259,
+      "lon": -122.404117,
+      "line": "15"
+    },
+    {
+      "id": "13163",
+      "name": "4th St & Townsend St/Caltrain",
+      "lat": 37.777109,
+      "lon": -122.395135,
+      "line": "15"
+    },
+    {
+      "id": "18147",
+      "name": "Hudson Ave & Cashmere St",
+      "lat": 37.73565,
+      "lon": -122.383348,
+      "line": "15"
+    },
+    {
+      "id": "15043",
+      "name": "Hudson Ave & Cashmere St",
+      "lat": 37.735958,
+      "lon": -122.383545,
+      "line": "15"
+    },
+    {
+      "id": "15044",
+      "name": "Hudson Ave & Ingalls St",
+      "lat": 37.732497,
+      "lon": -122.37991,
+      "line": "15"
+    },
+    {
+      "id": "15045",
+      "name": "Hudson Ave & Ingalls St",
+      "lat": 37.73239,
+      "lon": -122.379692,
+      "line": "15"
+    },
+    {
+      "id": "15046",
+      "name": "Hudson Ave & Keith St",
+      "lat": 37.7377,
+      "lon": -122.38412,
+      "line": "15"
+    },
+    {
+      "id": "15047",
+      "name": "Hudson Ave & Keith St",
+      "lat": 37.73759,
+      "lon": -122.38416,
+      "line": "15"
+    },
+    {
+      "id": "15049",
+      "name": "Hudson Ave & Mendell St",
+      "lat": 37.739,
+      "lon": -122.38654,
+      "line": "15"
+    },
+    {
+      "id": "15048",
+      "name": "Hudson Ave & Mendell St",
+      "lat": 37.73896,
+      "lon": -122.38628,
+      "line": "15"
+    },
+    {
+      "id": "17938",
+      "name": "Hudson Ave & Newhall St",
+      "lat": 37.739905,
+      "lon": -122.388125,
+      "line": "15"
+    },
+    {
+      "id": "18106",
+      "name": "Hudson Ave & Newhall St",
+      "lat": 37.740053,
+      "lon": -122.388132,
+      "line": "15"
+    },
+    {
+      "id": "15050",
+      "name": "Hudson Ave & Whitney Young Cir",
+      "lat": 37.733319,
+      "lon": -122.381845,
+      "line": "15"
+    },
+    {
+      "id": "15051",
+      "name": "Hudson Ave & Whitney Young Cir",
+      "lat": 37.733355,
+      "lon": -122.38212,
+      "line": "15"
+    },
+    {
+      "id": "18058",
+      "name": "Ingalls St & Kiska Rd",
+      "lat": 37.731042,
+      "lon": -122.379556,
+      "line": "15"
+    },
+    {
+      "id": "18053",
+      "name": "Ingalls St & Lasalle Ave",
+      "lat": 37.730633,
+      "lon": -122.381389,
+      "line": "15"
+    },
+    {
+      "id": "18057",
+      "name": "Ingalls St & Lasalle Ave",
+      "lat": 37.730535,
+      "lon": -122.381526,
+      "line": "15"
+    },
+    {
+      "id": "18056",
+      "name": "Ingalls St & Oakdale Ave",
+      "lat": 37.730286,
+      "lon": -122.38289,
+      "line": "15"
+    },
+    {
+      "id": "18054",
+      "name": "Ingalls St & Oakdale Ave",
+      "lat": 37.730428,
+      "lon": -122.382913,
+      "line": "15"
+    },
+    {
+      "id": "18066",
+      "name": "Ingalls St & Palou Ave",
+      "lat": 37.729884,
+      "lon": -122.383451,
+      "line": "15"
+    },
+    {
+      "id": "18051",
+      "name": "Jerrold Ave & Donahue St",
+      "lat": 37.728191,
+      "lon": -122.370807,
+      "line": "15"
+    },
+    {
+      "id": "18052",
+      "name": "Kirkwood Ave & Earl St",
+      "lat": 37.728665,
+      "lon": -122.373086,
+      "line": "15"
+    },
+    {
+      "id": "14827",
+      "name": "Kiska Rd & Dormitory Rd",
+      "lat": 37.72988,
+      "lon": -122.37527,
+      "line": "15"
+    },
+    {
+      "id": "15242",
+      "name": "Kiska Rd & Ingalls St",
+      "lat": 37.731131,
+      "lon": -122.379487,
+      "line": "15"
+    },
+    {
+      "id": "14817",
+      "name": "Kiska Rd & Reardon Rd",
+      "lat": 37.73004,
+      "lon": -122.37711,
+      "line": "15"
+    },
+    {
+      "id": "15766",
+      "name": "Northridge Rd & Dormitory Rd",
+      "lat": 37.73025,
+      "lon": -122.37448,
+      "line": "15"
+    },
+    {
+      "id": "15767",
+      "name": "Northridge Rd & Harbor Rd",
+      "lat": 37.730978,
+      "lon": -122.377013,
+      "line": "15"
+    },
+    {
+      "id": "15768",
+      "name": "Northridge Rd & Ingalls St",
+      "lat": 37.73163,
+      "lon": -122.37896,
+      "line": "15"
+    },
+    {
+      "id": "15864",
+      "name": "Palou Ave & 3rd St",
+      "lat": 37.73385,
+      "lon": -122.390859,
+      "line": "15"
+    },
+    {
+      "id": "15863",
+      "name": "Palou Ave & 3rd St",
+      "lat": 37.734019,
+      "lon": -122.390825,
+      "line": "15"
+    },
+    {
+      "id": "15869",
+      "name": "Palou Ave & Ingalls St",
+      "lat": 37.729733,
+      "lon": -122.383578,
+      "line": "15"
+    },
+    {
+      "id": "15874",
+      "name": "Palou Ave & Keith St",
+      "lat": 37.731849,
+      "lon": -122.38731,
+      "line": "15"
+    },
+    {
+      "id": "15872",
+      "name": "Palou Ave & Keith St",
+      "lat": 37.731858,
+      "lon": -122.387046,
+      "line": "15"
+    },
+    {
+      "id": "16516",
+      "name": "Stockton St & Geary St",
+      "lat": 37.787704,
+      "lon": -122.406729,
+      "line": "15"
+    },
+    {
+      "id": "16606",
+      "name": "Sutter St & Sansome St",
+      "lat": 37.790214,
+      "lon": -122.401338,
+      "line": "15"
+    },
+    {
+      "id": "17378",
+      "name": "Third St & Marin St",
+      "lat": 37.749097,
+      "lon": -122.387571,
+      "line": "15"
+    },
+    {
+      "id": "17377",
+      "name": "Third St & Marin St",
+      "lat": 37.748954,
+      "lon": -122.38741,
+      "line": "15"
+    }
+  ],
+  "nameDiscrepancies": [
+    {
+      "stopId": "17324",
+      "referenceName": "3rd St & Warriors Way",
+      "appName": "3rd St & Gene Friend Way / Chase Center",
+      "note": "Same ID; resolve the public label rather than creating a duplicate stop."
+    }
+  ]
+}

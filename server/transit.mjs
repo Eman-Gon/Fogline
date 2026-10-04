@@ -1,19 +1,11 @@
+import { getRealtimeSnapshot } from './realtime.mjs';
+import { journeyHandler } from './journey.mjs';
 import { createTransitCache, TRANSIT_TTL } from './transit-cache.mjs';
 
-const API = 'https://api.511.org/transit';
+import { fetch511 } from './transit-source.mjs';
 const cached = createTransitCache();
 const TTL = TRANSIT_TTL;
-
-async function get511(path, params) {
-  const key = process.env.SF511_API_KEY;
-  if (!key) throw new Error('511 API key is not configured on the server.');
-  const url = new URL(`${API}/${path}`);
-  url.searchParams.set('api_key', key);
-  for (const [name, value] of Object.entries(params)) if (value) url.searchParams.set(name, value);
-  const response = await fetch(url, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
-  if (!response.ok) throw new Error(`511 returned HTTP ${response.status}.`);
-  return response.json();
-}
+const get511 = (path, params) => fetch511(path, params);
 
 function asArray(value) { return value == null ? [] : Array.isArray(value) ? value : [value]; }
 function text(value) { return typeof value === 'string' || typeof value === 'number' ? String(value) : ''; }
@@ -32,6 +24,9 @@ export function readArrivals(payload) {
     return {
       line: text(journey.LineRef || journey.PublishedLineName || journey.LineName) || 'Muni',
       destination: text(journey.DestinationName),
+      tripId: text(journey.FramedVehicleJourneyRef?.DatedVehicleJourneyRef || journey.DatedVehicleJourneyRef),
+      direction: text(journey.DirectionRef),
+      recordedAt: text(visit?.RecordedAtTime),
       aimed: text(call.AimedArrivalTime || call.AimedDepartureTime),
       expected: text(call.ExpectedArrivalTime || call.ExpectedDepartureTime),
       stop: text(call.StopPointName),
@@ -83,6 +78,9 @@ export function readVehicles(payload) {
     return {
       line: text(journey.LineRef || journey.PublishedLineName),
       destination: text(journey.DestinationName),
+      tripId: text(journey.FramedVehicleJourneyRef?.DatedVehicleJourneyRef || journey.DatedVehicleJourneyRef),
+      direction: text(journey.DirectionRef),
+      recordedAt: text(activity.RecordedAtTime),
       lat: Number(location.Latitude),
       lon: Number(location.Longitude),
       bearing: Number.isFinite(bearing) ? bearing : null,
@@ -124,7 +122,8 @@ export async function listVehicles(lines) {
   return { ...all, items: want.size ? all.items.filter((vehicle) => want.has(vehicle.line)) : [] };
 }
 
-export async function getTransitSnapshot(stopCode = '') {
+export async function getTransitSnapshot(stopCode = '', options = {}) {
+  if(options.commute) return {realtime:await getRealtimeSnapshot()};
   const stop = String(stopCode).trim();
   if (stop && !/^\d{1,10}$/.test(stop)) throw new Error('Use a numeric 511 stop code of up to 10 digits.');
   const jobs = [
@@ -156,8 +155,9 @@ export function transitHandler(req, res) {
   try { url = new URL(req.url, 'http://localhost'); }
   catch { sendJson(res, 400, { error: 'Invalid URL' }); return true; }
   if (!url.pathname.startsWith('/api/transit')) return false;
-  if (!['/api/transit', '/api/transit/lines', '/api/transit/stops', '/api/transit/vehicles'].includes(url.pathname)) { sendJson(res, 404, { error: 'Not found' }); return true; }
+  if (!['/api/transit', '/api/transit/lines', '/api/transit/stops', '/api/transit/vehicles', '/api/transit/catalog', '/api/transit/patterns'].includes(url.pathname)) { sendJson(res, 404, { error: 'Not found' }); return true; }
   if (req.method !== 'GET') { sendJson(res, 405, { error: 'Method not allowed' }); return true; }
+  if (['/api/transit/catalog', '/api/transit/patterns'].includes(url.pathname)) { journeyHandler(url).then(data => sendJson(res, 200, data)).catch(e => sendJson(res, 503, { error: e.message })); return true; }
   const fail = () => sendJson(res, 502, { error: 'Transit feed unavailable.' });
   if (url.pathname === '/api/transit/lines') { listLines().then((data) => sendJson(res, 200, data)).catch(fail); return true; }
   if (url.pathname === '/api/transit/stops') {

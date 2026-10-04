@@ -1,0 +1,22 @@
+{
+  "observedAt": "2026-10-04T21:11:41.000Z",
+  "scheduleVersion": "20260829",
+  "tripUpdates": 1188,
+  "exactActiveScheduleMatches": 1188,
+  "vehicles": 598,
+  "vehiclesWithTripIdentity": 421,
+  "vehiclesWithStopProgress": 418,
+  "alerts": 24,
+  "limitations": [
+    "Single snapshot, not a cadence or accuracy study.",
+    "Missing vehicle identity or progress remains unknown.",
+    "No boarding outcome or calibrated arrival range established."
+  ],
+  "policy": {
+    "tripUpdateCacheSeconds": 180,
+    "positionCacheSeconds": 180,
+    "alertCacheSeconds": 600,
+    "liveObservationMaxAgeSeconds": 240,
+    "sharedRollingHourRequestLimit": 55
+  }
+}

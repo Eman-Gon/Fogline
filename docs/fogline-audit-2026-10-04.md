@@ -110,3 +110,15 @@ The app-only entry is **FBUS**. Its presence in the feed is not evidence of a bu
 6. **Temporary stop closures and substitutions need actionable display.** Route pages link to temporary-stop notices. Show an affected saved stop's closure/relocation and supported alternative when verified; do not rely only on a general line alert or continue suggesting the unchanged boarding pin. This remains a required integration, not a verified current failure at every stop.
 
 The next correctness pass should therefore cover catalog presence, service calendars, trip variants, stop identity, direction/sequence, and exceptions as separate checks. No application source was changed in this follow-up; the audit and catalog comparison were updated.
+
+**Route 15: verification against the user's ordered stop tables**
+
+Compared the supplied lists with the current `/api/transit/stops?lines=15` response and cross-checked the [SFMTA route page](https://www.sfmta.com/routes/15-bayview-hunters-point-express). Inbound has 27 stop occurrences and outbound has 28. Nine IDs belong to both lists, giving 46 distinct stops. The app response contains exactly those 46 IDs: no missing or extra IDs in this comparison. The final inbound Sutter & Sansome row has an empty ID cell in the paste; its linked stop ID is 16606, confirmed on the official page.
+
+The failure for this route is therefore direction, sequence, and presentation rather than missing stop records. Inbound should run from Palou & 3rd (15864) to Sutter & Sansome (16606); outbound should run from Sutter & Sansome (16606) to Palou & 3rd (15863). The app currently combines both directions, sorts the stops alphabetically or by proximity, and shows only 12 without a search (8 with location). Its route selection does not save a direction.
+
+Do not generate outbound by reversing inbound. Both directions traverse the eight-stop Northridge/Jerrold/Kirkwood/Kiska section in the same order. These shared stops need trip/direction context even though the physical stop IDs match. Conversely, identically named stops on opposite sides of a street must retain different IDs: for example, 3rd & 20th uses 13103 inbound and 13104 outbound.
+
+Stop 17324 also has a label disagreement: the supplied/SFMTA list says 3rd & Warriors Way, while the feed says 3rd & Gene Friend Way / Chase Center. It is present by ID; resolve the preferred public name and aliases rather than inventing another stop or claiming it is absent.
+
+The ordered reference and comparison are saved in `docs/muni-15-stop-reconciliation-2026-10-04.json`. This is an audit artifact, not runtime route configuration. Route 15 acceptance checks should require 27 inbound entries and 28 outbound entries in the supplied order, all accessible through the list, preserved shared-loop order, correct direction-specific IDs, and arrivals matched to the saved direction. This check does not validate every trip variant, detour, operating date, or live prediction.

@@ -26,6 +26,8 @@ test('rolling request budget survives cache eviction and includes failed request
   clock = 99;
   assert.match((await cached('next', load)).error, /limit/);
   clock = 100;
+  assert.match((await cached('next', load)).error, /limit/);
+  clock = 3600000;
   assert.equal((await cached('next', load)).error, 'offline');
   assert.equal(calls, 4);
 });

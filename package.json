@@ -8,10 +8,14 @@
     "start": "node --import tsx server.mjs",
     "account": "node server/setup-account.mjs",
     "build": "tsc && vite build",
-    "test": "node --import tsx --test src/planner.test.ts server/*.test.ts"
+    "test": "node --import tsx --test src/planner.test.ts server/*.test.ts",
+    "reliability:report": "node server/evaluate-reliability.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",
+    "cheerio": "^1.2.0",
+    "fflate": "^0.8.3",
+    "gtfs-realtime-bindings": "^2.2.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "tsx": "4.19.2"

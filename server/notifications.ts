@@ -1,3 +1,5 @@
+// @ts-expect-error JavaScript reminder policy.
+import { validCommuteNotice } from './commute-reminders.mjs';
 import type { AccountState } from '../src/agent-types.ts';
 
 export class NotificationError extends Error {}
@@ -38,7 +40,7 @@ export async function deliverPendingPush(state: AccountState, now: Date, save: (
   const date = `${parts.year}-${parts.month}-${parts.day}`, minute = Number(parts.hour) * 60 + Number(parts.minute);
   const ride = state.rides.find(r => r.date === date);
   for (const event of state.events.filter(e => e.kind === 'push' && e.delivery?.status === 'pending')) {
-    if (!state.settings.enabled || ['Sat', 'Sun'].includes(parts.weekday) || event.id !== `${date}:push` || minute < state.settings.wakeStart || minute >= state.settings.wakeEnd || ride?.acknowledged || ride?.started) {
+    if (!state.settings.enabled || !(state.commute?.days ?? [1,2,3,4,5]).includes(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(parts.weekday)) || (event.noticeKind?!validCommuteNotice(event,state,ride,date,now):event.id !== `${date}:push`) || minute < state.settings.wakeStart || minute >= state.settings.wakeEnd || (!event.noticeKind&&(ride?.acknowledged || ride?.started))) {
       event.delivery = { status: 'cancelled' }; await save(); continue;
     }
     event.delivery = { status: 'sending' }; await save();

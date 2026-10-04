@@ -22,11 +22,11 @@ test('agent matches direction, revises for delays, and refuses stale or infeasib
   const late = computeBriefing(state, fixture(monday, 12), monday);
   assert.equal(late.plan?.trip, 486); assert.ok(late.plan!.start < normal.plan!.start);
   const stale = fixture(); stale.arrivals.stale = true;
-  assert.equal(computeBriefing(state, stale, monday).source, 'sample');
+  assert.equal(computeBriefing(state, stale, monday).source, 'unavailable');
   state.profile.arriveBy = 450;
   assert.equal(computeBriefing(state, fixture(), monday).plan, null);
   state.settings.headsign = '';
-  assert.match(computeBriefing(state, fixture(), monday).speech, /Sample plan/);
+  assert.match(computeBriefing(state, fixture(), monday).speech, /Complete My commute/);
 });
 test('preparation progress reduces remaining work without inventing an earlier trip', () => {
   const state = freshAccount(); state.settings.headsign = 'Chinatown';
